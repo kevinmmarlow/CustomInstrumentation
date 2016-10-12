@@ -10,7 +10,7 @@ public class InstApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        Intent intent = new Intent(this, MyService.class);
+        Intent intent = new Intent(this, ControllerService.class);
         startService(intent);
     }
 }
