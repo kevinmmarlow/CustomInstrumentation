@@ -10,7 +10,7 @@ public class InstApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        Intent intent = new Intent(this, ControllerService.class);
+        Intent intent = new Intent(this, AndromiumControllerService.class);
         startService(intent);
     }
 }

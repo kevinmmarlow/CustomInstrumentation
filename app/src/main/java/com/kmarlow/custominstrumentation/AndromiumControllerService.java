@@ -4,7 +4,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 
-public class ControllerService extends Service {
+public class AndromiumControllerService extends Service {
 
     @Override
     public void onCreate() {

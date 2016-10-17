@@ -3,6 +3,8 @@ package com.kmarlow.custominstrumentation;
 import android.app.Activity;
 import android.app.Service;
 import android.content.ContextWrapper;
+import android.os.Binder;
+import android.os.IBinder;
 import android.util.Log;
 
 import java.lang.reflect.Field;
@@ -10,8 +12,8 @@ import java.lang.reflect.Field;
 public final class AndromiumInstrumentationInjector {
     private static final String TAG = AndromiumInstrumentationInjector.class.getName();
 
-    private static final String SERVICE_PACKAGE = "android.app.Service";
-    private static final String ACTIVITY_PACKAGE = "android.app.Service";
+    public static final String SERVICE_PACKAGE = "android.app.Service";
+    public static final String ACTIVITY_PACKAGE = "android.app.Activity";
 
     private static final String ACTIVITY_THREAD_PACKAGE = "android.app.ActivityThread";
     private static final String INSTRUMENTATION_PACKAGE = "android.app.Instrumentation";
@@ -35,7 +37,7 @@ public final class AndromiumInstrumentationInjector {
 
             Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
             instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation();
+            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(activity, null, new Binder());
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
             return andromiumInstrumentation;
@@ -58,9 +60,13 @@ public final class AndromiumInstrumentationInjector {
             activityThread.setAccessible(true);
             Object realActivityThread = activityThread.get(service);
 
+            Field token = getField(superClazz, "mToken", IBinder.class.getCanonicalName());
+            token.setAccessible(true);
+            IBinder serviceToken = (IBinder) token.get(service);
+
             Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
             instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation();
+            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(service, realActivityThread, serviceToken);
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
             return andromiumInstrumentation;
@@ -94,7 +100,7 @@ public final class AndromiumInstrumentationInjector {
         return theField;
     }
 
-    private static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
+    public static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
         Class clazzWithActivityThread = clazz.getClass();
 
         while (clazzWithActivityThread != null && !clazzWithActivityThread.getName().equals(packageName)) {
