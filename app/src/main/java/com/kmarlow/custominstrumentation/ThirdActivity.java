@@ -1,9 +1,9 @@
 package com.kmarlow.custominstrumentation;
 
-import android.support.v7.app.AppCompatActivity;
+import android.app.Activity;
 import android.os.Bundle;
 
-public class ThirdActivity extends AppCompatActivity {
+public class ThirdActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

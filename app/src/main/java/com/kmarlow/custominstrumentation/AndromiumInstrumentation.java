@@ -114,13 +114,13 @@ public class AndromiumInstrumentation extends Instrumentation {
 
             CharSequence title = resolveInfo.activityInfo.loadLabel(appContext.getPackageManager());
 
-            Class superClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
-            if (superClazz == null) {
+            Class superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+            if (superActivityClazz == null) {
                 return null;
             }
 
             Class nonConfigInstances = null;
-            Class<?>[] activityInnerClasses = superClazz.getDeclaredClasses();
+            Class<?>[] activityInnerClasses = superActivityClazz.getDeclaredClasses();
             for (Class clazz : activityInnerClasses) {
                 if (clazz.getSimpleName().equals("NonConfigurationInstances")) {
                     nonConfigInstances = clazz;
@@ -137,7 +137,7 @@ public class AndromiumInstrumentation extends Instrumentation {
             Method attachMethod = null;
 
             try {
-                attachMethod = superClazz.getDeclaredMethod("attach", Context.class, mActivityThread.getClass(),
+                attachMethod = superActivityClazz.getDeclaredMethod("attach", Context.class, mActivityThread.getClass(),
                         Instrumentation.class, IBinder.class, int.class, Application.class, Intent.class,
                         ActivityInfo.class, CharSequence.class, Activity.class, String.class, nonConfigInstances,
                         Configuration.class, String.class, voiceInteractorClass);
@@ -146,7 +146,7 @@ public class AndromiumInstrumentation extends Instrumentation {
             }
 
             if (attachMethod == null) {
-                Method[] declaredMethods1 = superClazz.getDeclaredMethods();
+                Method[] declaredMethods1 = superActivityClazz.getDeclaredMethods();
                 for (Method method : declaredMethods1) {
                     if (method.getName().equals("attach")) {
                         attachMethod = method;
@@ -168,11 +168,26 @@ public class AndromiumInstrumentation extends Instrumentation {
                     null, null, new Configuration(),
                     null, null);
 
+            int theme = resolveInfo.activityInfo.getThemeResource();
+            if (theme != 0) {
+                activity.setTheme(theme);
+            }
+
             // Basically, we should keep a track of the activities ourselves,
             // manage the parent/child flow, and setup the next intent appropriately
 
+            Field called = superActivityClazz.getDeclaredField("mCalled");
+            called.setAccessible(true);
+            called.set(activity, false);
+
             // TODO: Save the bundle when we should stop the activity, "restore" it when we start
             callActivityOnCreate(activity, null /* SAVED BUNDLE HERE */);
+
+            boolean calledSet = (boolean) called.get(activity);
+            if (!calledSet) {
+                throw new RuntimeException("Activity " + intent.getComponent().toShortString() +
+                        " did not call through to super.onCreate()");
+            }
 
         } catch (Exception e) {
             Log.wtf(TAG, e);
