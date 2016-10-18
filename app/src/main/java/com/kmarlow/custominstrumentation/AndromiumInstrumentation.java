@@ -159,6 +159,10 @@ public class AndromiumInstrumentation extends Instrumentation {
                 throw new RuntimeException();
             }
 
+            // -------------------------------------------------
+            // ---------------- ATTACH ACTIVITY ----------------
+            // -------------------------------------------------
+
             // TODO: Pull parent somehow
             Activity parent = null;
 
@@ -180,14 +184,92 @@ public class AndromiumInstrumentation extends Instrumentation {
             called.setAccessible(true);
             called.set(activity, false);
 
+            // FAKE SAVED INSTANCE STATE
+            Bundle icicle = new Bundle();
+
+            // -------------------------------------------------
+            // ---------------- CREATE ACTIVITY ----------------
+            // -------------------------------------------------
+
             // TODO: Save the bundle when we should stop the activity, "restore" it when we start
-            callActivityOnCreate(activity, null /* SAVED BUNDLE HERE */);
+            callActivityOnCreate(activity, icicle /* SAVED BUNDLE HERE */);
 
             boolean calledSet = (boolean) called.get(activity);
             if (!calledSet) {
                 throw new RuntimeException("Activity " + intent.getComponent().toShortString() +
                         " did not call through to super.onCreate()");
             }
+
+            // -------------------------------------------------
+            // ---------------- CHECK IF FINISH ----------------
+            // -------------------------------------------------
+
+            Field finished = superActivityClazz.getDeclaredField("mFinished");
+            finished.setAccessible(true);
+            boolean isFinished = (boolean) finished.get(activity);
+
+            if (isFinished) {
+                Log.i(TAG, "Activity finish called in onCreate");
+                return null;
+            }
+
+            // -------------------------------------------------
+            // ---------------- START ACTIVITY -----------------
+            // -------------------------------------------------
+
+            Method performStart = superActivityClazz.getDeclaredMethod("performStart");
+            performStart.setAccessible(true);
+            performStart.invoke(activity);
+
+            isFinished = (boolean) finished.get(activity);
+
+            if (isFinished) {
+                Log.i(TAG, "Activity finish called in onStart");
+                return null;
+            }
+
+            // -------------------------------------------------
+            // ---------------- RESTORE ACTIVITY ---------------
+            // -------------------------------------------------
+
+            callActivityOnRestoreInstanceState(activity, icicle /* SAVED BUNDLE HERE */);
+
+            isFinished = (boolean) finished.get(activity);
+
+            if (isFinished) {
+                Log.i(TAG, "Activity finish called in onStart");
+                return null;
+            }
+
+            callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
+
+            // -------------------------------------------------
+            // --------------- INTENT REDELIVERY ---------------
+            // -------------------------------------------------
+
+            // FIXME: deliverNewIntents relies on activity stack checking
+//            r.activity.mFragments.noteStateNotSaved();
+//            if (r.pendingIntents != null) {
+//                deliverNewIntents(r, r.pendingIntents);
+//                r.pendingIntents = null;
+//            }
+
+            // -------------------------------------------------
+            // ---------------- RESULT DELIVERY ----------------
+            // -------------------------------------------------
+
+//            if (r.pendingResults != null) {
+//                deliverResults(r, r.pendingResults);
+//                r.pendingResults = null;
+//            }
+
+            // -------------------------------------------------
+            // ---------------- RESUME ACTIVITY ----------------
+            // -------------------------------------------------
+
+            Method performResume = superActivityClazz.getDeclaredMethod("performResume");
+            performResume.setAccessible(true);
+            performResume.invoke(activity);
 
         } catch (Exception e) {
             Log.wtf(TAG, e);

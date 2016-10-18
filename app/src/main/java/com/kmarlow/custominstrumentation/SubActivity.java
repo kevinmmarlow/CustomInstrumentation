@@ -3,6 +3,7 @@ package com.kmarlow.custominstrumentation;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 
 /**
@@ -10,6 +11,8 @@ import android.view.View;
  * adb shell dumpsys activity activities | sed -En -e '/Stack #/p' -e '/Running activities/,/Run #0/p'
  */
 public class SubActivity extends Activity {
+
+    private static final String TAG = SubActivity.class.getSimpleName();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,5 +25,23 @@ public class SubActivity extends Activity {
                 startActivity(new Intent(SubActivity.this, ThirdActivity.class));
             }
         });
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.i(TAG, "onStart called");
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        Log.i(TAG, "onRestoreInstanceState called");
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.i(TAG, "onResume called");
     }
 }
