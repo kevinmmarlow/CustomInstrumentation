@@ -7,9 +7,6 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.ResolveInfo;
-import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.UserHandle;
@@ -18,24 +15,21 @@ import android.view.View;
 import android.view.Window;
 import android.widget.Toast;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.ACTIVITY_PACKAGE;
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.getSuperclass;
+public class AndromiumInstrumentation extends Instrumentation implements ActivityLifecycleManager.LifecycleControllerCallbacks {
 
-
-public class AndromiumInstrumentation extends Instrumentation {
     private static final String TAG = AndromiumInstrumentation.class.getSimpleName();
+
     private final ActivityManager mActivityManager;
     private final Object mActivityThread;
     private final IBinder serviceToken;
+    private final ActivityLifecycleManager lifecycleManager;
 
     public AndromiumInstrumentation(Context context, Object realActivityThread, IBinder serviceToken) {
         mActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         this.serviceToken = serviceToken;
         mActivityThread = realActivityThread;
+        this.lifecycleManager = new ActivityLifecycleManager(this, this, mActivityThread, serviceToken);
     }
 
     // Intercept Activity construction
@@ -45,236 +39,7 @@ public class AndromiumInstrumentation extends Instrumentation {
             Intent intent, int requestCode, Bundle options) {
         Toast.makeText(who, "Start " + intent.getComponent().getShortClassName(), Toast.LENGTH_SHORT).show();
 
-        ResolveInfo resolveInfo = who.getPackageManager().resolveActivity(intent, 0);
-        ApplicationInfo aInfo = resolveInfo.activityInfo.applicationInfo;
-
-        try {
-
-            Method[] declaredMethods = mActivityThread.getClass().getDeclaredMethods();
-            Method packageInfoCheck = null;
-
-            for (Method method : declaredMethods) {
-                if (method.getName().equals("getPackageInfoNoCheck")) {
-                    packageInfoCheck = method;
-                    break;
-                }
-            }
-
-            if (packageInfoCheck == null) {
-                throw new RuntimeException();
-            }
-
-            Object loadedApk = packageInfoCheck.invoke(mActivityThread, aInfo, null);
-            Method getClassLoader = loadedApk.getClass().getDeclaredMethod("getClassLoader");
-
-            java.lang.ClassLoader cl = (ClassLoader) getClassLoader.invoke(loadedApk);
-
-            Activity activity = (Activity) cl.loadClass(intent.getComponent().getClassName()).newInstance();
-
-            Method makeApplication = loadedApk.getClass().getDeclaredMethod("makeApplication", boolean.class, Instrumentation.class);
-
-            Application application = (Application) makeApplication.invoke(loadedApk, false, this);
-
-            Class<?> activityClientRecord = null;
-            Class<?>[] declaredClasses = mActivityThread.getClass().getDeclaredClasses();
-
-            for (Class clazz : declaredClasses) {
-                if (clazz.getSimpleName().equals("ActivityClientRecord")) {
-                    activityClientRecord = clazz;
-                    break;
-                }
-            }
-
-            if (activityClientRecord == null) {
-                throw new RuntimeException();
-            }
-
-            Constructor<?> defaultConstructor = activityClientRecord.getDeclaredConstructor();
-            defaultConstructor.setAccessible(true);
-
-            Object realActivityClientRecord = defaultConstructor.newInstance();
-
-            Class<?> activityClientRecordClass = realActivityClientRecord.getClass();
-            Field packageInfo = activityClientRecordClass.getDeclaredField("packageInfo");
-            packageInfo.setAccessible(true);
-            packageInfo.set(realActivityClientRecord, loadedApk);
-
-            Field theToken = activityClientRecordClass.getDeclaredField("token");
-            theToken.setAccessible(true);
-
-            if (token == null) {
-                token = serviceToken;
-            }
-
-            theToken.set(realActivityClientRecord, token);
-
-            Method createBaseContextForActivity = mActivityThread.getClass().getDeclaredMethod("createBaseContextForActivity", activityClientRecord, Activity.class);
-            createBaseContextForActivity.setAccessible(true);
-            Context appContext = (Context) createBaseContextForActivity.invoke(mActivityThread, realActivityClientRecord, activity);
-
-            CharSequence title = resolveInfo.activityInfo.loadLabel(appContext.getPackageManager());
-
-            Class superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
-            if (superActivityClazz == null) {
-                return null;
-            }
-
-            Class nonConfigInstances = null;
-            Class<?>[] activityInnerClasses = superActivityClazz.getDeclaredClasses();
-            for (Class clazz : activityInnerClasses) {
-                if (clazz.getSimpleName().equals("NonConfigurationInstances")) {
-                    nonConfigInstances = clazz;
-                    break;
-                }
-            }
-
-            if (nonConfigInstances == null) {
-                throw new RuntimeException();
-            }
-
-            Class<?> voiceInteractorClass = Class.forName("com.android.internal.app.IVoiceInteractor");
-
-            Method attachMethod = null;
-
-            try {
-                attachMethod = superActivityClazz.getDeclaredMethod("attach", Context.class, mActivityThread.getClass(),
-                        Instrumentation.class, IBinder.class, int.class, Application.class, Intent.class,
-                        ActivityInfo.class, CharSequence.class, Activity.class, String.class, nonConfigInstances,
-                        Configuration.class, String.class, voiceInteractorClass);
-            } catch (Exception ignored) {
-                Log.wtf(TAG, ignored.getLocalizedMessage());
-            }
-
-            if (attachMethod == null) {
-                Method[] declaredMethods1 = superActivityClazz.getDeclaredMethods();
-                for (Method method : declaredMethods1) {
-                    if (method.getName().equals("attach")) {
-                        attachMethod = method;
-                        break;
-                    }
-                }
-            }
-
-            if (attachMethod == null) {
-                throw new RuntimeException();
-            }
-
-            // -------------------------------------------------
-            // ---------------- ATTACH ACTIVITY ----------------
-            // -------------------------------------------------
-
-            // TODO: Pull parent somehow
-            Activity parent = null;
-
-            attachMethod.setAccessible(true);
-            attachMethod.invoke(activity, appContext, mActivityThread, this, serviceToken,
-                    0, application, intent, resolveInfo.activityInfo, title, parent,
-                    null, null, new Configuration(),
-                    null, null);
-
-            int theme = resolveInfo.activityInfo.getThemeResource();
-            if (theme != 0) {
-                activity.setTheme(theme);
-            }
-
-            // Basically, we should keep a track of the activities ourselves,
-            // manage the parent/child flow, and setup the next intent appropriately
-
-            Field called = superActivityClazz.getDeclaredField("mCalled");
-            called.setAccessible(true);
-            called.set(activity, false);
-
-            // FAKE SAVED INSTANCE STATE
-            Bundle icicle = new Bundle();
-
-            // -------------------------------------------------
-            // ---------------- CREATE ACTIVITY ----------------
-            // -------------------------------------------------
-
-            // TODO: Save the bundle when we should stop the activity, "restore" it when we start
-            callActivityOnCreate(activity, icicle /* SAVED BUNDLE HERE */);
-
-            boolean calledSet = (boolean) called.get(activity);
-            if (!calledSet) {
-                throw new RuntimeException("Activity " + intent.getComponent().toShortString() +
-                        " did not call through to super.onCreate()");
-            }
-
-            // -------------------------------------------------
-            // ---------------- CHECK IF FINISH ----------------
-            // -------------------------------------------------
-
-            Field finished = superActivityClazz.getDeclaredField("mFinished");
-            finished.setAccessible(true);
-            boolean isFinished = (boolean) finished.get(activity);
-
-            if (isFinished) {
-                Log.i(TAG, "Activity finish called in onCreate");
-                return null;
-            }
-
-            // -------------------------------------------------
-            // ---------------- START ACTIVITY -----------------
-            // -------------------------------------------------
-
-            Method performStart = superActivityClazz.getDeclaredMethod("performStart");
-            performStart.setAccessible(true);
-            performStart.invoke(activity);
-
-            isFinished = (boolean) finished.get(activity);
-
-            if (isFinished) {
-                Log.i(TAG, "Activity finish called in onStart");
-                return null;
-            }
-
-            // -------------------------------------------------
-            // ---------------- RESTORE ACTIVITY ---------------
-            // -------------------------------------------------
-
-            callActivityOnRestoreInstanceState(activity, icicle /* SAVED BUNDLE HERE */);
-
-            isFinished = (boolean) finished.get(activity);
-
-            if (isFinished) {
-                Log.i(TAG, "Activity finish called in onStart");
-                return null;
-            }
-
-            callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
-
-            // -------------------------------------------------
-            // --------------- INTENT REDELIVERY ---------------
-            // -------------------------------------------------
-
-            // FIXME: deliverNewIntents relies on activity stack checking
-//            r.activity.mFragments.noteStateNotSaved();
-//            if (r.pendingIntents != null) {
-//                deliverNewIntents(r, r.pendingIntents);
-//                r.pendingIntents = null;
-//            }
-
-            // -------------------------------------------------
-            // ---------------- RESULT DELIVERY ----------------
-            // -------------------------------------------------
-
-//            if (r.pendingResults != null) {
-//                deliverResults(r, r.pendingResults);
-//                r.pendingResults = null;
-//            }
-
-            // -------------------------------------------------
-            // ---------------- RESUME ACTIVITY ----------------
-            // -------------------------------------------------
-
-            Method performResume = superActivityClazz.getDeclaredMethod("performResume");
-            performResume.setAccessible(true);
-            performResume.invoke(activity);
-
-        } catch (Exception e) {
-            Log.wtf(TAG, e);
-            Toast.makeText(who, "Andromium is unsupported on this version", Toast.LENGTH_SHORT).show();
-        }
+        lifecycleManager.createAndStartActivity(who, token, intent);
 
         return null;
     }

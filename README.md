@@ -6,7 +6,7 @@ First off, what is Instrumentation, and why do we want to override it? Let's loo
    - Responsible for managing the execution of the main thread in an application process, scheduling and executing activities, broadcasts, and other operations on it as the activity manager requests.
 
 2. Instrumentation  
-  - Base class for implementing application instrumentation code.  When running with instrumentation turned on, this class will be instantiated for you before any of the application code, allowing you to monitor all of the interaction the system has with the application.  An Instrumentation implementation is described to the system through an AndroidManifest.xml's <instrumentation> tag.
+  - Base class for implementing application callbacks code.  When running with callbacks turned on, this class will be instantiated for you before any of the application code, allowing you to monitor all of the interaction the system has with the application.  An Instrumentation implementation is described to the system through an AndroidManifest.xml's <callbacks> tag.
 
 Now, from these descriptions, one would think that ActivityThread is responsible for talking to Activities, Services, and the Application as a whole.
 One would also think that Instrumentation must sit as an observer to ActivityThread in order to profile, right? **Nope**
