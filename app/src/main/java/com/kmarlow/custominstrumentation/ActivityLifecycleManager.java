@@ -20,6 +20,8 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
 
+import com.andromium.framework.ui.AndromiumPhoneWindow21;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -29,7 +31,7 @@ import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector
 import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.getSuperclass;
 
 public class ActivityLifecycleManager {
-    private static final String TAG = ActivityLifecycleManager.class.getSimpleName();
+    private static final String TAG = "jesse";
 
     public static final String MAKE_APPLICATION = "makeApplication";
     public static final String GET_PACKAGE_INFO_NO_CHECK = "getPackageInfoNoCheck";
@@ -82,6 +84,32 @@ public class ActivityLifecycleManager {
 
             Class superActivityClazz = attachActivity(token, intent, resolveInfo, loadedApk, activity, application);
 
+            Window window = activity.getWindow();
+
+            Log.d(TAG, "WINDOW: " + window.getClass().getName());
+
+            try {
+                Field field = superActivityClazz.getDeclaredField("mWindow");
+                field.setAccessible(true);
+                Log.d("jesse", "this is the mWindow: " + ((Window) field.get(activity)).getClass().getName());
+                field.set(activity, new AndromiumPhoneWindow21(activity));
+                Log.d("jesse", "this is the mWindow: " + ((Window) field.get(activity)).getClass().getName());
+            } catch (Exception error) {
+                Log.d("jesse", "GetField Activity Error: " + error);
+            }
+
+
+            window = activity.getWindow();
+            try {
+                AndromiumPhoneWindow21 andromiumWindow = (AndromiumPhoneWindow21) window;
+                Method method = andromiumWindow.getClass().getMethod("installDecor");
+                method.setAccessible(true);
+                View view = (View) method.invoke(window);
+
+                Log.d(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + view.getClass().getName());
+            } catch (Exception error) {
+                Log.d("jesse", "install Decorview error: " + error);
+            }
             // Apply the theme
             int theme = resolveInfo.activityInfo.getThemeResource();
             if (theme != 0) {

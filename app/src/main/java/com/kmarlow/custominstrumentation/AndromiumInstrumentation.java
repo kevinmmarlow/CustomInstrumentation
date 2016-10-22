@@ -15,10 +15,14 @@ import android.view.View;
 import android.view.Window;
 import android.widget.Toast;
 
+import com.andromium.framework.ui.AndromiumPhoneWindow21;
+
+import java.lang.reflect.Field;
+
 
 public class AndromiumInstrumentation extends Instrumentation implements ActivityLifecycleManager.LifecycleControllerCallbacks {
 
-    private static final String TAG = AndromiumInstrumentation.class.getSimpleName();
+    private static final String TAG = "jesse";
 
     private final ActivityManager mActivityManager;
     private final Object mActivityThread;
@@ -95,7 +99,21 @@ public class AndromiumInstrumentation extends Instrumentation implements Activit
         Window window = activity.getWindow();
         View view = window.peekDecorView();
 
-        Log.i(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + view.getClass().getName());
+        Log.d(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + view.getClass().getName());
+
+        try {
+            Field field = activity.getClass().getField("mWindow");
+            field.setAccessible(true);
+            field.set(activity, new AndromiumPhoneWindow21(activity));
+        } catch (Exception error) {
+            Log.d("jesse", "GetField Activity Error: " + error);
+        }
+
+
+        window = activity.getWindow();
+        view = window.peekDecorView();
+
+        Log.d(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + view.getClass().getName());
         return activity;
     }
 }
