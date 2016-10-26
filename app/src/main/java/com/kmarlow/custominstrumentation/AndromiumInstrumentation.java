@@ -2,34 +2,31 @@ package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.Application;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.UserHandle;
 import android.util.Log;
-import android.view.View;
-import android.view.Window;
 import android.widget.Toast;
-
 
 public class AndromiumInstrumentation extends Instrumentation implements ActivityLifecycleManager.LifecycleControllerCallbacks {
 
-    private static final String TAG = AndromiumInstrumentation.class.getSimpleName();
+    private static final String TAG = "jesse";
 
     private final ActivityManager mActivityManager;
     private final Object mActivityThread;
     private final IBinder serviceToken;
     private final ActivityLifecycleManager lifecycleManager;
+    private final AndromiumLifecycleCallbacks lifecycleCallbacks;
 
-    public AndromiumInstrumentation(Context context, Object realActivityThread, IBinder serviceToken) {
+    public AndromiumInstrumentation(Context context, Object realActivityThread, IBinder serviceToken, AndromiumLifecycleCallbacks lifecycleCallbacks) {
         mActivityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         this.serviceToken = serviceToken;
         mActivityThread = realActivityThread;
         this.lifecycleManager = new ActivityLifecycleManager(this, this, mActivityThread, serviceToken);
+        this.lifecycleCallbacks = lifecycleCallbacks;
     }
 
     // Intercept Activity construction
@@ -81,21 +78,15 @@ public class AndromiumInstrumentation extends Instrumentation implements Activit
         return null;
     }
 
-
-    // Intercept activity attach
+    @Override
+    public void callActivityOnPostCreate(Activity activity, Bundle icicle) {
+        super.callActivityOnPostCreate(activity, icicle);
+        lifecycleCallbacks.postActivityOnCreate(activity);
+    }
 
     @Override
-    public Activity newActivity(Class<?> clazz, Context context,
-                                IBinder token, Application application, Intent intent, ActivityInfo info,
-                                CharSequence title, Activity parent, String id,
-                                Object lastNonConfigurationInstance) throws InstantiationException, IllegalAccessException {
-        Log.e(TAG, "newActivity -> " + clazz.getName());
-        Activity activity = super.newActivity(clazz, context, token, application, intent, info, title, parent, id, lastNonConfigurationInstance);
-
-        Window window = activity.getWindow();
-        View view = window.peekDecorView();
-
-        Log.i(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + view.getClass().getName());
-        return activity;
+    public void callActivityOnResume(Activity activity) {
+        super.callActivityOnResume(activity);
+        lifecycleCallbacks.postActivityOnResume();
     }
 }

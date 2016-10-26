@@ -3,7 +3,6 @@ package com.kmarlow.custominstrumentation;
 import android.app.Activity;
 import android.app.Service;
 import android.content.ContextWrapper;
-import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -23,31 +22,32 @@ public final class AndromiumInstrumentationInjector {
 
 
     public static AndromiumInstrumentation inject(Activity activity) {
-        if (!hasActivityThread()) return null;
-
-        Class superClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
-        if (superClazz == null) {
-            return null;
-        }
-
-        try {
-            Field activityThread = getField(superClazz, ACTIVITY_THREAD_FIELD_IN_ACTIVITY, ACTIVITY_THREAD_PACKAGE);
-            activityThread.setAccessible(true);
-            Object realActivityThread = activityThread.get(activity);
-
-            Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
-            instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(activity, null, new Binder());
-            instrumentation.set(realActivityThread, andromiumInstrumentation);
-
-            return andromiumInstrumentation;
-        } catch (Exception e) {
-            // Something crazy happened, rethrow, or potentially just don't open that app.
-            throw new RuntimeException(e);
-        }
+//        if (!hasActivityThread()) return null;
+//
+//        Class superClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+//        if (superClazz == null) {
+//            return null;
+//        }
+//
+//        try {
+//            Field activityThread = getField(superClazz, ACTIVITY_THREAD_FIELD_IN_ACTIVITY, ACTIVITY_THREAD_PACKAGE);
+//            activityThread.setAccessible(true);
+//            Object realActivityThread = activityThread.get(activity);
+//
+//            Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
+//            instrumentation.setAccessible(true);
+//            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(activity, null, new Binder(), );
+//            instrumentation.set(realActivityThread, andromiumInstrumentation);
+//
+//            return andromiumInstrumentation;
+//        } catch (Exception e) {
+//            // Something crazy happened, rethrow, or potentially just don't open that app.
+//            throw new RuntimeException(e);
+//        }
+        return null;
     }
 
-    public static AndromiumInstrumentation inject(Service service) {
+    public static AndromiumInstrumentation inject(Service service, AndromiumLifecycleCallbacks andromiumLifecycleCallbacks) {
         if (!hasActivityThread()) return null;
 
         Class superClazz = getSuperclass(service, SERVICE_PACKAGE);
@@ -66,7 +66,7 @@ public final class AndromiumInstrumentationInjector {
 
             Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
             instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(service, realActivityThread, serviceToken);
+            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(service, realActivityThread, serviceToken, andromiumLifecycleCallbacks);
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
             return andromiumInstrumentation;
