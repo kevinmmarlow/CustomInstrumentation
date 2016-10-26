@@ -2,7 +2,6 @@ package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
 import android.app.Application;
-import android.app.FragmentController;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
@@ -357,10 +356,26 @@ public class ActivityLifecycleManager {
         Activity parent = null;
 
         attachMethod.setAccessible(true);
-        attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
-                0, application, intent, resolveInfo.activityInfo, title, parent,
-                null, null, new Configuration(),
-                null, null);
+
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP) {
+            attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
+                    0, application, intent, resolveInfo.activityInfo, title, parent,
+                    null, null, new Configuration(),
+                    null);
+        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            // Adds (String referrer)
+            attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
+                    0, application, intent, resolveInfo.activityInfo, title, parent,
+                    null, null, new Configuration(),
+                    null, null);
+        } else {
+            // Adds (Window window)
+            attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
+                    0, application, intent, resolveInfo.activityInfo, title, parent,
+                    null, null, new Configuration(),
+                    null, null, null);
+        }
+
         return superActivityClazz;
     }
 
@@ -383,7 +398,9 @@ public class ActivityLifecycleManager {
         // Now doing activity.mFragments.noteStateNotSaved();
         Field fragments = superActivityClazz.getDeclaredField("mFragments");
         fragments.setAccessible(true);
-        FragmentController fragController = (FragmentController) fragments.get(activity);
+
+        // Could be either FragmentController or FragmentManagerImpl
+        Object fragController = fragments.get(activity);
 
         Method noteStateNotSaved = fragController.getClass().getDeclaredMethod("noteStateNotSaved");
         noteStateNotSaved.setAccessible(true);
