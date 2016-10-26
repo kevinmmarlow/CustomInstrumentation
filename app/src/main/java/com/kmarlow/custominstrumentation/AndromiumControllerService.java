@@ -63,7 +63,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     @Override
     public void postActivityOnCreate(Activity activity) {
         Log.d("jesse", "this is the post Activity on Create");
-        Toast.makeText(activity.getApplicationContext(), "This is postActivityOnCreate", Toast.LENGTH_SHORT);
+        Toast.makeText(activity.getApplicationContext(), "This is postActivityOnCreate", Toast.LENGTH_SHORT).show();
         View decorView = activity.getWindow().getDecorView();
         Log.d("jesse", "this is the activity decorWindow: " + decorView);
         mContext.initWindow(this, appId);
@@ -74,6 +74,6 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     @Override
     public void postActivityOnResume() {
         Log.d("jesse", "this is the post Activity on resume");
-        Toast.makeText(mContext.getApplicationContext(), "this is postActivityOnResume", Toast.LENGTH_SHORT);
+        Toast.makeText(mContext.getApplicationContext(), "this is postActivityOnResume", Toast.LENGTH_SHORT).show();
     }
 }
