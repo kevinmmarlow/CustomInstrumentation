@@ -57,6 +57,8 @@ public class ActivityLifecycleManager {
 
         void callActivityOnPostCreate(Activity activity, Bundle icicle);
 
+        void callActivityOnResume(Activity activity);
+
     }
 
     private final LifecycleControllerCallbacks callbacks;
@@ -91,25 +93,16 @@ public class ActivityLifecycleManager {
             try {
                 Field field = superActivityClazz.getDeclaredField("mWindow");
                 field.setAccessible(true);
-                Log.d("jesse", "this is the mWindow: " + ((Window) field.get(activity)).getClass().getName());
                 field.set(activity, new AndromiumPhoneWindow21(activity));
-                Log.d("jesse", "this is the mWindow: " + ((Window) field.get(activity)).getClass().getName());
             } catch (Exception error) {
                 Log.d("jesse", "GetField Activity Error: " + error);
             }
 
-
             window = activity.getWindow();
-            try {
-                AndromiumPhoneWindow21 andromiumWindow = (AndromiumPhoneWindow21) window;
-                Method method = andromiumWindow.getClass().getMethod("installDecor");
-                method.setAccessible(true);
-                View view = (View) method.invoke(window);
+            AndromiumPhoneWindow21 andromiumWindow = (AndromiumPhoneWindow21) window;
+            andromiumWindow.installDecor();
 
-                Log.d(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + view.getClass().getName());
-            } catch (Exception error) {
-                Log.d("jesse", "install Decorview error: " + error);
-            }
+            Log.d(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + andromiumWindow.getDecorView().getClass().getName());
             // Apply the theme
             int theme = resolveInfo.activityInfo.getThemeResource();
             if (theme != 0) {
@@ -143,6 +136,7 @@ public class ActivityLifecycleManager {
 
             if (isFinished) {
                 Log.i(TAG, "Activity finish called in onCreate");
+//                callbacks.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
                 return true;
             }
 
@@ -428,6 +422,9 @@ public class ActivityLifecycleManager {
         performResume.setAccessible(true);
         performResume.invoke(activity);
 
+        Log.d("jesse", "Performing Resume");
+        callbacks.callActivityOnResume(activity);
+
         Window window = activity.getWindow();
         View decor = window.getDecorView();
         decor.setVisibility(View.INVISIBLE);
@@ -443,17 +440,17 @@ public class ActivityLifecycleManager {
         l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
 
         // activity.mVisibleFromClient
-        Field mVisibleFromClient = superActivityClazz.getDeclaredField("mVisibleFromClient");
-        mVisibleFromClient.setAccessible(true);
-        boolean visibleFromClient = mVisibleFromClient.getBoolean(activity);
+//        Field mVisibleFromClient = superActivityClazz.getDeclaredField("mVisibleFromClient");
+//        mVisibleFromClient.setAccessible(true);
+//        boolean visibleFromClient = mVisibleFromClient.getBoolean(activity);
 
-        if (visibleFromClient) {
-            // activity.mWindowAdded = true;
-            Field mWindowAdded = superActivityClazz.getDeclaredField("mWindowAdded");
-            mWindowAdded.setAccessible(true);
-            mWindowAdded.setBoolean(activity, true);
-
-            wm.addView(decor, l);
-        }
+//        if (visibleFromClient) {
+//            // activity.mWindowAdded = true;
+//            Field mWindowAdded = superActivityClazz.getDeclaredField("mWindowAdded");
+//            mWindowAdded.setAccessible(true);
+//            mWindowAdded.setBoolean(activity, true);
+//
+//            wm.addView(decor, l);
+//        }
     }
 }

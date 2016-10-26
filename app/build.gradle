@@ -27,6 +27,7 @@ android {
 }
 
 repositories {
+    maven { url 'https://dl.bintray.com/anggrayudi/maven/' }
     flatDir {
         dirs 'libs'
     }
@@ -38,6 +39,7 @@ dependencies {
     compile(name: 'AndromiumFramework', ext: 'aar')
 
     compile 'com.android.support:multidex:1.0.0'
+    compile 'com.anggrayudi:android-hidden-api:0.0.5'
 
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'

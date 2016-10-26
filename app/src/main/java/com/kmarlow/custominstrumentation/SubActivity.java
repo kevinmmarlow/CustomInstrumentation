@@ -26,16 +26,14 @@ public class SubActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sub);
 
-        Log.d("jesse", "This is hitting the onCreate");
-
         Window mWindow = getWindow();
         View decorView = mWindow.getDecorView();
         ViewGroup viewGroup = (ViewGroup) decorView.getRootView();
         View newView = viewGroup.getChildAt(0);
 //        viewGroup.removeAllViews();
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
                 0,
                 PixelFormat.TRANSLUCENT);
@@ -65,8 +63,6 @@ public class SubActivity extends Activity {
         }
 
         wm.addView(decorView, params);
-
-        Log.d("jesse", "This is the end of the onCreate");
     }
 
     @Override
