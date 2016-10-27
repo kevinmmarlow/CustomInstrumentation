@@ -13,8 +13,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewManager;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
@@ -438,16 +436,16 @@ public class ActivityLifecycleManager {
         callbacks.callActivityOnResume(activity);
 
         Window window = activity.getWindow();
-        View decor = window.getDecorView();
-        decor.setVisibility(View.INVISIBLE);
-        ViewManager wm = activity.getWindowManager();
+//        View decor = window.getDecorView();
+//        decor.setVisibility(View.INVISIBLE);
+//        ViewManager wm = activity.getWindowManager();
         WindowManager.LayoutParams l = window.getAttributes();
 
 
         // activity.mDecor = decor;
-        Field mDecor = superActivityClazz.getDeclaredField("mDecor");
-        mDecor.setAccessible(true);
-        mDecor.set(activity, decor);
+//        Field mDecor = superActivityClazz.getDeclaredField("mDecor");
+//        mDecor.setAccessible(true);
+//        mDecor.set(activity, decor);
 
         l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
 
