@@ -2,15 +2,9 @@ package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.PixelFormat;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
 
 /**
@@ -26,28 +20,28 @@ public class SubActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sub);
 
-        Window mWindow = getWindow();
-        View decorView = mWindow.getDecorView();
-        ViewGroup viewGroup = (ViewGroup) decorView.getRootView();
-        View newView = viewGroup.getChildAt(0);
-//        viewGroup.removeAllViews();
-        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-                0,
-                PixelFormat.TRANSLUCENT);
-        params.gravity = Gravity.RIGHT | Gravity.BOTTOM;
-        params.setTitle("Load Average");
-        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-
-        decorView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                Log.d("jesse", "this is from the new on touch event");
-                return true;
-            }
-        });
+//        Window mWindow = getWindow();
+//        View decorView = mWindow.getDecorView();
+//        ViewGroup viewGroup = (ViewGroup) decorView.getRootView();
+//        View newView = viewGroup.getChildAt(0);
+////        viewGroup.removeAllViews();
+//        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+//                WindowManager.LayoutParams.MATCH_PARENT,
+//                WindowManager.LayoutParams.MATCH_PARENT,
+//                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
+//                0,
+//                PixelFormat.TRANSLUCENT);
+//        params.gravity = Gravity.RIGHT | Gravity.BOTTOM;
+//        params.setTitle("Load Average");
+//        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+//
+//        decorView.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View view, MotionEvent motionEvent) {
+//                Log.d("jesse", "this is from the new on touch event");
+//                return true;
+//            }
+//        });
 
         Button button = (Button) findViewById(R.id.button);
         if (button != null) {
@@ -62,7 +56,7 @@ public class SubActivity extends Activity {
             Log.d("jesse", "the button is null");
         }
 
-        wm.addView(decorView, params);
+//        wm.addView(decorView, params);
     }
 
     @Override

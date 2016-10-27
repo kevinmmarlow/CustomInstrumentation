@@ -98,11 +98,6 @@ public class ActivityLifecycleManager {
                 Log.d("jesse", "GetField Activity Error: " + error);
             }
 
-            window = activity.getWindow();
-            AndromiumPhoneWindow21 andromiumWindow = (AndromiumPhoneWindow21) window;
-            andromiumWindow.installDecor();
-
-            Log.d(TAG, "WINDOW: " + window.getClass().getName() + ". DecorView: " + andromiumWindow.getDecorView().getClass().getName());
             // Apply the theme
             int theme = resolveInfo.activityInfo.getThemeResource();
             if (theme != 0) {

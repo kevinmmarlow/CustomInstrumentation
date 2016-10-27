@@ -66,7 +66,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         Toast.makeText(activity.getApplicationContext(), "This is postActivityOnCreate", Toast.LENGTH_SHORT);
         View decorView = activity.getWindow().getDecorView();
         Log.d("jesse", "this is the activity decorWindow: " + decorView);
-        mContext.initWindow(this, appId);
+        mContext.initWindow(this, appId, decorView);
 
         //TODO: pass the decor view in and show it on screen. Right now we try to draw an empty window so it doesn't show up because there is nothing to show.
     }
