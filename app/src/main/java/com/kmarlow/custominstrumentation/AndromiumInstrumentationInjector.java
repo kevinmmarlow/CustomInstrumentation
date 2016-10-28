@@ -1,6 +1,6 @@
 package com.kmarlow.custominstrumentation;
 
-import android.app.Activity;
+import android.app.ActivityThread;
 import android.app.Service;
 import android.content.ContextWrapper;
 import android.os.IBinder;
@@ -11,41 +11,15 @@ import java.lang.reflect.Field;
 public final class AndromiumInstrumentationInjector {
     private static final String TAG = AndromiumInstrumentationInjector.class.getName();
 
-    public static final String SERVICE_PACKAGE = "android.app.Service";
+    private static final String SERVICE_PACKAGE = "android.app.Service";
     public static final String ACTIVITY_PACKAGE = "android.app.Activity";
 
     private static final String ACTIVITY_THREAD_PACKAGE = "android.app.ActivityThread";
     private static final String INSTRUMENTATION_PACKAGE = "android.app.Instrumentation";
     private static final String ACTIVITY_THREAD_VAR_IN_SERVICE = "mThread";
-    private static final String ACTIVITY_THREAD_FIELD_IN_ACTIVITY = "mMainThread";
     private static final String INSTRUMENTATION_FIELD = "mInstrumentation";
+    public static final String SERVICE_TOKEN = "mToken";
 
-
-    public static AndromiumInstrumentation inject(Activity activity) {
-//        if (!hasActivityThread()) return null;
-//
-//        Class superClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
-//        if (superClazz == null) {
-//            return null;
-//        }
-//
-//        try {
-//            Field activityThread = getField(superClazz, ACTIVITY_THREAD_FIELD_IN_ACTIVITY, ACTIVITY_THREAD_PACKAGE);
-//            activityThread.setAccessible(true);
-//            Object realActivityThread = activityThread.get(activity);
-//
-//            Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
-//            instrumentation.setAccessible(true);
-//            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(activity, null, new Binder(), );
-//            instrumentation.set(realActivityThread, andromiumInstrumentation);
-//
-//            return andromiumInstrumentation;
-//        } catch (Exception e) {
-//            // Something crazy happened, rethrow, or potentially just don't open that app.
-//            throw new RuntimeException(e);
-//        }
-        return null;
-    }
 
     public static AndromiumInstrumentation inject(Service service, AndromiumLifecycleCallbacks andromiumLifecycleCallbacks) {
         if (!hasActivityThread()) return null;
@@ -58,15 +32,15 @@ public final class AndromiumInstrumentationInjector {
         try {
             Field activityThread = getField(superClazz, ACTIVITY_THREAD_VAR_IN_SERVICE, ACTIVITY_THREAD_PACKAGE);
             activityThread.setAccessible(true);
-            Object realActivityThread = activityThread.get(service);
+            ActivityThread realActivityThread = (ActivityThread) activityThread.get(service);
 
-            Field token = getField(superClazz, "mToken", IBinder.class.getCanonicalName());
+            Field token = getField(superClazz, SERVICE_TOKEN, IBinder.class.getCanonicalName());
             token.setAccessible(true);
             IBinder serviceToken = (IBinder) token.get(service);
 
             Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
             instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(service, realActivityThread, serviceToken, andromiumLifecycleCallbacks);
+            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(realActivityThread, serviceToken, andromiumLifecycleCallbacks);
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
             return andromiumInstrumentation;
@@ -100,7 +74,7 @@ public final class AndromiumInstrumentationInjector {
         return theField;
     }
 
-    public static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
+    static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
         Class clazzWithActivityThread = clazz.getClass();
 
         while (clazzWithActivityThread != null && !clazzWithActivityThread.getName().equals(packageName)) {
