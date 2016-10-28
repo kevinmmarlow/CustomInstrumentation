@@ -1,8 +1,11 @@
 package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
+import android.app.ActivityThread;
 import android.app.Application;
 import android.app.Instrumentation;
+import android.app.LoadedApk;
+import android.app.VoiceInteractor;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -14,7 +17,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Toast;
 
 import com.andromium.framework.ui.AndromiumPhoneWindow21;
@@ -30,40 +32,22 @@ import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector
 public class ActivityLifecycleManager {
     private static final String TAG = "jesse";
 
-    public static final String MAKE_APPLICATION = "makeApplication";
-    public static final String GET_PACKAGE_INFO_NO_CHECK = "getPackageInfoNoCheck";
-    public static final String GET_CLASS_LOADER = "getClassLoader";
-    public static final String ACTIVITY_CLIENT_RECORD = "ActivityClientRecord";
-    public static final String PACKAGE_INFO = "packageInfo";
-    public static final String TOKEN = "token";
-    public static final String CREATE_BASE_CONTEXT_FOR_ACTIVITY = "createBaseContextForActivity";
-    public static final String NON_CONFIGURATION_INSTANCES = "NonConfigurationInstances";
-    public static final String COM_ANDROID_INTERNAL_APP_IVOICE_INTERACTOR = "com.android.internal.app.IVoiceInteractor";
-    public static final String ATTACH = "attach";
-    public static final String M_CALLED = "mCalled";
-    public static final String M_FINISHED = "mFinished";
-    public static final String PERFORM_START = "performStart";
-    public static final String PERFORM_RESUME = "performResume";
+    private static final String ACTIVITY_CLIENT_RECORD = "ActivityClientRecord";
+    private static final String PACKAGE_INFO = "packageInfo";
+    private static final String TOKEN = "token";
+    private static final String CREATE_BASE_CONTEXT_FOR_ACTIVITY = "createBaseContextForActivity";
+    private static final String NON_CONFIGURATION_INSTANCES = "NonConfigurationInstances";
+    private static final String ATTACH = "attach";
+    private static final String M_CALLED = "mCalled";
+    private static final String M_FINISHED = "mFinished";
+    private static final String PERFORM_START = "performStart";
+    private static final String PERFORM_RESUME = "performResume";
     private final Instrumentation instrumentation;
 
-    public interface LifecycleControllerCallbacks {
-
-        void callActivityOnCreate(Activity activity, Bundle icicle);
-
-        void callActivityOnRestoreInstanceState(Activity activity, Bundle icicle);
-
-        void callActivityOnPostCreate(Activity activity, Bundle icicle);
-
-        void callActivityOnResume(Activity activity);
-
-    }
-
-    private final LifecycleControllerCallbacks callbacks;
-    private final Object activityThread;
+    private final ActivityThread activityThread;
     private final IBinder serviceToken;
 
-    public ActivityLifecycleManager(LifecycleControllerCallbacks callbacks, Instrumentation instrumentation, Object activityThread, IBinder serviceToken) {
-        this.callbacks = callbacks;
+    public ActivityLifecycleManager(Instrumentation instrumentation, ActivityThread activityThread, IBinder serviceToken) {
         this.instrumentation = instrumentation;
         this.activityThread = activityThread;
         this.serviceToken = serviceToken;
@@ -75,25 +59,14 @@ public class ActivityLifecycleManager {
 
         try {
 
-            Object loadedApk = createLoadedApk(aInfo);
+            LoadedApk loadedApk = createLoadedApk(aInfo);
             Activity activity = instantiateActivity(intent, loadedApk);
 
-            Method makeApplication = loadedApk.getClass().getDeclaredMethod(MAKE_APPLICATION, boolean.class, Instrumentation.class);
-            Application application = (Application) makeApplication.invoke(loadedApk, false, instrumentation);
+            Application application = loadedApk.makeApplication(false, instrumentation);
 
             Class superActivityClazz = attachActivity(token, intent, resolveInfo, loadedApk, activity, application);
 
-            Window window = activity.getWindow();
-
-            Log.d(TAG, "WINDOW: " + window.getClass().getName());
-
-            try {
-                Field field = superActivityClazz.getDeclaredField("mWindow");
-                field.setAccessible(true);
-                field.set(activity, new AndromiumPhoneWindow21(activity));
-            } catch (Exception error) {
-                Log.d("jesse", "GetField Activity Error: " + error);
-            }
+            injectAndromiumWindow(activity, superActivityClazz);
 
             // Apply the theme
             int theme = resolveInfo.activityInfo.getThemeResource();
@@ -116,7 +89,7 @@ public class ActivityLifecycleManager {
             // -------------------------------------------------
 
             // TODO: Save the bundle when we should stop the activity, "restore" it when we start
-            callbacks.callActivityOnCreate(activity, icicle /* SAVED BUNDLE HERE */);
+            instrumentation.callActivityOnCreate(activity, icicle /* SAVED BUNDLE HERE */);
 
             // -------------------------------------------------
             // ---------------- CHECK IF FINISH ----------------
@@ -128,7 +101,7 @@ public class ActivityLifecycleManager {
 
             if (isFinished) {
                 Log.i(TAG, "Activity finish called in onCreate");
-//                callbacks.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
+//                instrumentation.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
                 return true;
             }
 
@@ -138,7 +111,7 @@ public class ActivityLifecycleManager {
 
             if (restoreActivityState(activity, icicle, finished)) return true;
 
-            callbacks.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
+            instrumentation.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
 
             resumeActivity(activity, superActivityClazz);
 
@@ -148,6 +121,22 @@ public class ActivityLifecycleManager {
             Toast.makeText(who, "Andromium is unsupported on this version", Toast.LENGTH_SHORT).show();
         }
         return false;
+    }
+
+    private void injectAndromiumWindow(Activity activity, Class superActivityClazz) {
+        Window window = activity.getWindow();
+
+        if (!(window instanceof AndromiumPhoneWindow21)) {
+            Log.d(TAG, "WINDOW: " + window.getClass().getName());
+
+            try {
+                Field field = superActivityClazz.getDeclaredField("mWindow");
+                field.setAccessible(true);
+                field.set(activity, new AndromiumPhoneWindow21(activity));
+            } catch (Exception error) {
+                Log.d("jesse", "GetField Activity Error: " + error);
+            }
+        }
     }
 
     private void checkIfSuperCalled(Intent intent, Activity activity, Field called) throws IllegalAccessException {
@@ -193,7 +182,7 @@ public class ActivityLifecycleManager {
      * @throws IllegalAccessException
      */
     private boolean restoreActivityState(Activity activity, Bundle icicle, Field finished) throws IllegalAccessException {
-        callbacks.callActivityOnRestoreInstanceState(activity, icicle /* SAVED BUNDLE HERE */);
+        instrumentation.callActivityOnRestoreInstanceState(activity, icicle /* SAVED BUNDLE HERE */);
 
         boolean isFinished = (boolean) finished.get(activity);
 
@@ -216,10 +205,8 @@ public class ActivityLifecycleManager {
      * @throws InstantiationException
      * @throws ClassNotFoundException
      */
-    private Activity instantiateActivity(Intent intent, Object loadedApk) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException, ClassNotFoundException {
-        Method getClassLoader = loadedApk.getClass().getDeclaredMethod(GET_CLASS_LOADER);
-        ClassLoader cl = (ClassLoader) getClassLoader.invoke(loadedApk);
-
+    private Activity instantiateActivity(Intent intent, LoadedApk loadedApk) throws ClassNotFoundException, IllegalAccessException, InstantiationException {
+        ClassLoader cl = loadedApk.getClassLoader();
         return (Activity) cl.loadClass(intent.getComponent().getClassName()).newInstance();
     }
 
@@ -231,22 +218,8 @@ public class ActivityLifecycleManager {
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      */
-    private Object createLoadedApk(ApplicationInfo aInfo) throws IllegalAccessException, InvocationTargetException {
-        Method[] declaredMethods = activityThread.getClass().getDeclaredMethods();
-        Method packageInfoCheck = null;
-
-        for (Method method : declaredMethods) {
-            if (method.getName().equals(GET_PACKAGE_INFO_NO_CHECK)) {
-                packageInfoCheck = method;
-                break;
-            }
-        }
-
-        if (packageInfoCheck == null) {
-            throw new IllegalStateException(GET_PACKAGE_INFO_NO_CHECK + " does not exist.");
-        }
-
-        return packageInfoCheck.invoke(activityThread, aInfo, null);
+    private LoadedApk createLoadedApk(ApplicationInfo aInfo) {
+        return activityThread.getPackageInfoNoCheck(aInfo, null);
     }
 
     /**
@@ -266,7 +239,7 @@ public class ActivityLifecycleManager {
      * @throws NoSuchFieldException
      * @throws ClassNotFoundException
      */
-    private Class attachActivity(IBinder token, Intent intent, ResolveInfo resolveInfo, Object loadedApk, Activity activity, Application application) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
+    private Class attachActivity(IBinder token, Intent intent, ResolveInfo resolveInfo, LoadedApk loadedApk, Activity activity, Application application) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
         Class<?> activityClientRecord = null;
         Class<?>[] declaredClasses = activityThread.getClass().getDeclaredClasses();
 
@@ -324,15 +297,13 @@ public class ActivityLifecycleManager {
             throw new IllegalStateException(NON_CONFIGURATION_INSTANCES + " not found.");
         }
 
-        Class<?> voiceInteractorClass = Class.forName(COM_ANDROID_INTERNAL_APP_IVOICE_INTERACTOR);
-
         Method attachMethod = null;
 
         try {
             attachMethod = superActivityClazz.getDeclaredMethod(ATTACH, Context.class, activityThread.getClass(),
                     Instrumentation.class, IBinder.class, int.class, Application.class, Intent.class,
                     ActivityInfo.class, CharSequence.class, Activity.class, String.class, nonConfigInstances,
-                    Configuration.class, String.class, voiceInteractorClass);
+                    Configuration.class, String.class, VoiceInteractor.class);
         } catch (Exception ignored) {
             Log.wtf(TAG, ignored.getLocalizedMessage());
         }
@@ -432,35 +403,7 @@ public class ActivityLifecycleManager {
         performResume.setAccessible(true);
         performResume.invoke(activity);
 
-        Log.d("jesse", "Performing Resume");
-        callbacks.callActivityOnResume(activity);
-
-        Window window = activity.getWindow();
-//        View decor = window.getDecorView();
-//        decor.setVisibility(View.INVISIBLE);
-//        ViewManager wm = activity.getWindowManager();
-        WindowManager.LayoutParams l = window.getAttributes();
-
-
-        // activity.mDecor = decor;
-//        Field mDecor = superActivityClazz.getDeclaredField("mDecor");
-//        mDecor.setAccessible(true);
-//        mDecor.set(activity, decor);
-
-        l.type = WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
-
-        // activity.mVisibleFromClient
-//        Field mVisibleFromClient = superActivityClazz.getDeclaredField("mVisibleFromClient");
-//        mVisibleFromClient.setAccessible(true);
-//        boolean visibleFromClient = mVisibleFromClient.getBoolean(activity);
-
-//        if (visibleFromClient) {
-//            // activity.mWindowAdded = true;
-//            Field mWindowAdded = superActivityClazz.getDeclaredField("mWindowAdded");
-//            mWindowAdded.setAccessible(true);
-//            mWindowAdded.setBoolean(activity, true);
-//
-//            wm.addView(decor, l);
-//        }
+        Log.d(TAG, "Performing Resume");
+        instrumentation.callActivityOnResume(activity);
     }
 }
