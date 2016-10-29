@@ -12,10 +12,10 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.andromium.framework.AndromiumApi;
-import com.andromium.framework.ui.AndromiumHackFrameworkStub;
+import com.andromium.framework.ui.AndromiumAdapterFrameworkStub;
 import com.andromium.framework.ui.WindowConfig;
 
-public class AndromiumControllerService extends AndromiumHackFrameworkStub {
+public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
 
     private AndromiumControllerServiceImpl app;
 
@@ -82,8 +82,6 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         ViewGroup decorView = (ViewGroup) activity.getWindow().getDecorView();
         controllerService.transitionToScreen(appId, decorView);
         Log.d("jesse", "this is the activity decorWindow: " + decorView);
-
-        //TODO: pass the decor view in and show it on screen. Right now we try to draw an empty window so it doesn't show up because there is nothing to show.
     }
 
     @Override

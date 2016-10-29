@@ -1,6 +1,5 @@
 package com.kmarlow.custominstrumentation;
 
-import android.app.ActivityThread;
 import android.app.Service;
 import android.content.ContextWrapper;
 import android.os.IBinder;
@@ -32,7 +31,7 @@ public final class AndromiumInstrumentationInjector {
         try {
             Field activityThread = getField(superClazz, ACTIVITY_THREAD_VAR_IN_SERVICE, ACTIVITY_THREAD_PACKAGE);
             activityThread.setAccessible(true);
-            ActivityThread realActivityThread = (ActivityThread) activityThread.get(service);
+            Object realActivityThread = activityThread.get(service);
 
             Field token = getField(superClazz, SERVICE_TOKEN, IBinder.class.getCanonicalName());
             token.setAccessible(true);

@@ -1,10 +1,8 @@
 package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
-import android.app.ActivityThread;
 import android.app.Application;
 import android.app.Instrumentation;
-import android.app.LoadedApk;
 import android.app.VoiceInteractor;
 import android.content.Context;
 import android.content.Intent;
@@ -32,6 +30,9 @@ import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector
 public class ActivityLifecycleManager {
     private static final String TAG = "jesse";
 
+    public static final String MAKE_APPLICATION = "makeApplication";
+    public static final String GET_PACKAGE_INFO_NO_CHECK = "getPackageInfoNoCheck";
+    public static final String GET_CLASS_LOADER = "getClassLoader";
     private static final String ACTIVITY_CLIENT_RECORD = "ActivityClientRecord";
     private static final String PACKAGE_INFO = "packageInfo";
     private static final String TOKEN = "token";
@@ -44,10 +45,10 @@ public class ActivityLifecycleManager {
     private static final String PERFORM_RESUME = "performResume";
     private final Instrumentation instrumentation;
 
-    private final ActivityThread activityThread;
+    private final Object activityThread;
     private final IBinder serviceToken;
 
-    public ActivityLifecycleManager(Instrumentation instrumentation, ActivityThread activityThread, IBinder serviceToken) {
+    public ActivityLifecycleManager(Instrumentation instrumentation, Object activityThread, IBinder serviceToken) {
         this.instrumentation = instrumentation;
         this.activityThread = activityThread;
         this.serviceToken = serviceToken;
@@ -59,10 +60,11 @@ public class ActivityLifecycleManager {
 
         try {
 
-            LoadedApk loadedApk = createLoadedApk(aInfo);
+            Object loadedApk = createLoadedApk(aInfo);
             Activity activity = instantiateActivity(intent, loadedApk);
 
-            Application application = loadedApk.makeApplication(false, instrumentation);
+            Method makeApplication = loadedApk.getClass().getDeclaredMethod(MAKE_APPLICATION, boolean.class, Instrumentation.class);
+            Application application = (Application) makeApplication.invoke(loadedApk, false, instrumentation);
 
             Class superActivityClazz = attachActivity(token, intent, resolveInfo, loadedApk, activity, application);
 
@@ -205,8 +207,9 @@ public class ActivityLifecycleManager {
      * @throws InstantiationException
      * @throws ClassNotFoundException
      */
-    private Activity instantiateActivity(Intent intent, LoadedApk loadedApk) throws ClassNotFoundException, IllegalAccessException, InstantiationException {
-        ClassLoader cl = loadedApk.getClassLoader();
+    private Activity instantiateActivity(Intent intent, Object loadedApk) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException, ClassNotFoundException {
+        Method getClassLoader = loadedApk.getClass().getDeclaredMethod(GET_CLASS_LOADER);
+        ClassLoader cl = (ClassLoader) getClassLoader.invoke(loadedApk);
         return (Activity) cl.loadClass(intent.getComponent().getClassName()).newInstance();
     }
 
@@ -218,8 +221,20 @@ public class ActivityLifecycleManager {
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      */
-    private LoadedApk createLoadedApk(ApplicationInfo aInfo) {
-        return activityThread.getPackageInfoNoCheck(aInfo, null);
+    private Object createLoadedApk(ApplicationInfo aInfo) throws IllegalAccessException, InvocationTargetException {
+        Method[] declaredMethods = activityThread.getClass().getDeclaredMethods();
+        Method packageInfoCheck = null;
+        for (Method method : declaredMethods) {
+            if (method.getName().equals(GET_PACKAGE_INFO_NO_CHECK)) {
+                packageInfoCheck = method;
+                break;
+            }
+        }
+        if (packageInfoCheck == null) {
+            throw new IllegalStateException(GET_PACKAGE_INFO_NO_CHECK + " does not exist.");
+        }
+
+        return packageInfoCheck.invoke(activityThread, aInfo, null);
     }
 
     /**
@@ -239,7 +254,7 @@ public class ActivityLifecycleManager {
      * @throws NoSuchFieldException
      * @throws ClassNotFoundException
      */
-    private Class attachActivity(IBinder token, Intent intent, ResolveInfo resolveInfo, LoadedApk loadedApk, Activity activity, Application application) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
+    private Class attachActivity(IBinder token, Intent intent, ResolveInfo resolveInfo, Object loadedApk, Activity activity, Application application) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
         Class<?> activityClientRecord = null;
         Class<?>[] declaredClasses = activityThread.getClass().getDeclaredClasses();
 

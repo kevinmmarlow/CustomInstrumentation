@@ -1,7 +1,6 @@
 package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
-import android.app.ActivityThread;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
@@ -12,12 +11,12 @@ import android.widget.Toast;
 
 public class AndromiumInstrumentation extends Instrumentation {
 
-    private final ActivityThread mActivityThread;
+    private final Object mActivityThread;
     private final IBinder serviceToken;
     private final ActivityLifecycleManager lifecycleManager;
     private final AndromiumLifecycleCallbacks lifecycleCallbacks;
 
-    public AndromiumInstrumentation(ActivityThread realActivityThread, IBinder serviceToken, AndromiumLifecycleCallbacks lifecycleCallbacks) {
+    public AndromiumInstrumentation(Object realActivityThread, IBinder serviceToken, AndromiumLifecycleCallbacks lifecycleCallbacks) {
         this.serviceToken = serviceToken;
         mActivityThread = realActivityThread;
         this.lifecycleManager = new ActivityLifecycleManager(this, mActivityThread, serviceToken);
