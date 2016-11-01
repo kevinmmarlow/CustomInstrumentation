@@ -53,6 +53,11 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     private void startLauncherActivity() {
         final PackageManager pm = controllerService.getPackageManager();
         Intent launcherIntent = pm.getLaunchIntentForPackage(context.getPackageName());
+
+        if (launcherIntent == null) {
+            throw new IllegalStateException("No launcher activity found for " + context.getPackageName());
+        }
+
         ComponentName componentName = launcherIntent.getComponent();
         // Make sure to clear the stack of activities.
         Intent mainIntent = IntentCompat.makeRestartActivityTask(componentName);
