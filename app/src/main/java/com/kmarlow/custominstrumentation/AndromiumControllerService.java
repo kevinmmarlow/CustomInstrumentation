@@ -12,10 +12,10 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.andromium.framework.AndromiumApi;
-import com.andromium.framework.ui.AndromiumHackFrameworkStub;
+import com.andromium.framework.ui.AndromiumAdapterFrameworkStub;
 import com.andromium.framework.ui.WindowConfig;
 
-public class AndromiumControllerService extends AndromiumHackFrameworkStub {
+public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
 
     private AndromiumControllerServiceImpl app;
 
