@@ -181,7 +181,7 @@ public class ActivityLifecycleManager {
                 field.setAccessible(true);
                 field.set(activity, andromiumWindow);
             } catch (Exception error) {
-                Log.d("jesse", "GetField Activity Error: " + error);
+                Log.d(TAG, "GetField Activity Error: " + error);
             }
         }
 

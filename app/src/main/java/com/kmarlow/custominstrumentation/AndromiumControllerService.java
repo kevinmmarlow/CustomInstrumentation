@@ -34,11 +34,13 @@ public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
 }
 
 class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks {
-    private AndromiumControllerService controllerService;
+    private final AndromiumControllerService controllerService;
+    private final ActivityStackManager stackManager;
 
     AndromiumControllerServiceImpl(AndromiumControllerService controllerService, Intent launchIntent, int appId) {
         super(controllerService, launchIntent, appId);
         this.controllerService = controllerService;
+        this.stackManager = new ActivityStackManager();
 
         AndromiumInstrumentationInjector.inject(controllerService, this);
         controllerService.initWindow(this, appId);
@@ -78,6 +80,17 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     @Override
     public WindowConfig getWindowConfiguration() {
         return new WindowConfig(600, 500, true);
+    }
+
+    @Override
+    public boolean activityIsShowing(Intent intent) {
+        String className = intent.getComponent().getClassName();
+        boolean showingScreen = stackManager.isShowingScreen(className);
+        if (showingScreen) {
+            // TODO: Redeliver intent
+        }
+
+        return showingScreen;
     }
 
     @Override
