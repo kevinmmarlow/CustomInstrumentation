@@ -2,11 +2,13 @@ package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.support.v4.content.IntentCompat;
 import android.util.Log;
+import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -33,16 +35,24 @@ public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
     }
 }
 
-class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks {
+class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks, StackDispatcher {
     private final AndromiumControllerService controllerService;
     private final ActivityStackManager stackManager;
+    private final AndromiumInstrumentation instrumentation;
+    private final ActivityLifecycleManager lifecycleManager;
 
     AndromiumControllerServiceImpl(AndromiumControllerService controllerService, Intent launchIntent, int appId) {
         super(controllerService, launchIntent, appId);
         this.controllerService = controllerService;
-        this.stackManager = new ActivityStackManager();
+        this.stackManager = new ActivityStackManager(this);
 
-        AndromiumInstrumentationInjector.inject(controllerService, this);
+        Pair<AndromiumInstrumentation, ActivityLifecycleManager> pair = AndromiumInstrumentationInjector.inject(controllerService, this);
+        if (pair == null) {
+            throw new IllegalStateException("Unable to inject Andromium instrumentation");
+        }
+        this.instrumentation = pair.first;
+        this.lifecycleManager = pair.second;
+
         controllerService.initWindow(this, appId);
 
         // TODO: Call into the LAUNCHER activity
@@ -83,14 +93,29 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     }
 
     @Override
-    public boolean activityIsShowing(Intent intent) {
+    public void execStartActivity(Context who, IBinder token, Intent intent) {
+        Toast.makeText(who, "Start " + intent.getComponent().getShortClassName(), Toast.LENGTH_SHORT).show();
+
         String className = intent.getComponent().getClassName();
         boolean showingScreen = stackManager.isShowingScreen(className);
         if (showingScreen) {
-            // TODO: Redeliver intent
+
+            ActivityRecord activityRecord = stackManager.get(className);
+            // Activity exists in back stack, just redeliver intent.
+            instrumentation.callActivityOnNewIntent(activityRecord.activity, intent);
+            return;
         }
 
-        return showingScreen;
+        Activity current = stackManager.getTop();
+        if (current != null) {
+            lifecycleManager.pauseAndStopActivity(current);
+        }
+
+        Activity activity = lifecycleManager.createAndStartActivity(who, token, intent);
+        if (activity != null) {
+            // stackManager.addActivityToBackStack(activity);
+            // TODO: Figure out the best way to manage view stack and how to add this activity to the stack manager.
+        }
     }
 
     @Override

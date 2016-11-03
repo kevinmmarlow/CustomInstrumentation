@@ -1,27 +1,18 @@
 package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
-import android.app.ActivityThread;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.UserHandle;
-import android.widget.Toast;
 
 public class AndromiumInstrumentation extends Instrumentation {
 
-    private final ActivityThread mActivityThread;
-    private final IBinder serviceToken;
-    private final ActivityLifecycleManager lifecycleManager;
     private final AndromiumLifecycleCallbacks lifecycleCallbacks;
 
-    public AndromiumInstrumentation(ActivityThread realActivityThread, IBinder serviceToken,
-                                    AndromiumLifecycleCallbacks lifecycleCallbacks) {
-        this.serviceToken = serviceToken;
-        mActivityThread = realActivityThread;
-        this.lifecycleManager = new ActivityLifecycleManager(this, mActivityThread, serviceToken);
+    public AndromiumInstrumentation(AndromiumLifecycleCallbacks lifecycleCallbacks) {
         this.lifecycleCallbacks = lifecycleCallbacks;
     }
 
@@ -30,46 +21,22 @@ public class AndromiumInstrumentation extends Instrumentation {
     public ActivityResult execStartActivity(
             Context who, IBinder contextThread, IBinder token, Activity target,
             Intent intent, int requestCode, Bundle options) {
-        doStart(who, token, intent);
-
+        lifecycleCallbacks.execStartActivity(who, token, intent);
         return null;
     }
 
     public ActivityResult execStartActivity(
             Context who, IBinder contextThread, IBinder token, String target,
             Intent intent, int requestCode, Bundle options) {
-        doStart(who, token, intent);
-
+        lifecycleCallbacks.execStartActivity(who, token, intent);
         return null;
     }
 
     public ActivityResult execStartActivity(
             Context who, IBinder contextThread, IBinder token, Activity target,
             Intent intent, int requestCode, Bundle options, UserHandle user) {
-        doStart(who, token, intent);
-
+        lifecycleCallbacks.execStartActivity(who, token, intent);
         return null;
-    }
-
-    private void doStart(Context who, IBinder token, Intent intent) {
-        Toast.makeText(who, "Start " + intent.getComponent().getShortClassName(), Toast.LENGTH_SHORT).show();
-
-        if (lifecycleCallbacks.activityIsShowing(intent)) {
-            // Activity exists in back stack, just redeliver intent.
-
-            // TODO: Redeliver the intent, but who has a ref to the activity??
-            return;
-        }
-
-        Activity current = backstack.peekTopActivity();
-        if (current != null) {
-            lifecycleManager.pauseAndStopActivity(current);
-        }
-
-        Activity activity = lifecycleManager.createAndStartActivity(who, token, intent);
-        if (activity != null) {
-            backstack.addActivityToBackStack(activity);
-        }
     }
 
     @Override

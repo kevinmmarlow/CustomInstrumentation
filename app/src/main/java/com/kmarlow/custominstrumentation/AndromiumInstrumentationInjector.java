@@ -5,6 +5,7 @@ import android.app.Service;
 import android.content.ContextWrapper;
 import android.os.IBinder;
 import android.util.Log;
+import android.util.Pair;
 
 import java.lang.reflect.Field;
 
@@ -21,7 +22,7 @@ public final class AndromiumInstrumentationInjector {
     public static final String SERVICE_TOKEN = "mToken";
 
 
-    public static AndromiumInstrumentation inject(Service service, AndromiumLifecycleCallbacks andromiumLifecycleCallbacks) {
+    public static Pair<AndromiumInstrumentation, ActivityLifecycleManager> inject(Service service, AndromiumLifecycleCallbacks andromiumLifecycleCallbacks) {
         if (!hasActivityThread()) return null;
 
         Class superClazz = getSuperclass(service, SERVICE_PACKAGE);
@@ -40,10 +41,12 @@ public final class AndromiumInstrumentationInjector {
 
             Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
             instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(realActivityThread, serviceToken, andromiumLifecycleCallbacks);
+            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(andromiumLifecycleCallbacks);
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
-            return andromiumInstrumentation;
+            ActivityLifecycleManager activityLifecycleManager = new ActivityLifecycleManager(andromiumInstrumentation, realActivityThread, serviceToken);
+
+            return new Pair<>(andromiumInstrumentation, activityLifecycleManager);
         } catch (Exception e) {
             // Something crazy happened, rethrow, or potentially just don't open that app.
             throw new RuntimeException(e);
