@@ -1,6 +1,8 @@
 package com.kmarlow.custominstrumentation;
 
+import android.app.ActivityManagerNative;
 import android.app.ActivityThread;
+import android.app.IActivityManager;
 import android.app.Service;
 import android.content.ContextWrapper;
 import android.os.IBinder;
@@ -45,6 +47,12 @@ public final class AndromiumInstrumentationInjector {
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
             ActivityLifecycleManager activityLifecycleManager = new ActivityLifecycleManager(andromiumInstrumentation, realActivityThread, serviceToken);
+
+            IActivityManager aDefault = ActivityManagerNative.getDefault();
+            Field mRemote = aDefault.getClass().getDeclaredField("mRemote");
+            mRemote.setAccessible(true);
+            IBinder remoteBinder = (IBinder) mRemote.get(aDefault);
+            mRemote.set(aDefault, new RemoteBinderProxy(remoteBinder, activityLifecycleManager));
 
             return new Pair<>(andromiumInstrumentation, activityLifecycleManager);
         } catch (Exception e) {

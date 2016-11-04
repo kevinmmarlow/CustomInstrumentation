@@ -69,9 +69,19 @@ public class ActivityStackManager {
     public Activity getTop() {
         Iterator<String> reverseIterator = viewStack.reverseIterator();
         if (reverseIterator.hasNext()) {
-            return activityStack.get(reverseIterator.next()).activity;
+            ActivityRecord record = activityStack.get(reverseIterator.next());
+            return record == null ? null : record.activity;
         }
 
         return null;
+    }
+
+    public void addToTop(Activity activity) {
+        String className = activity.getClass().getCanonicalName();
+        viewStack.buildUpon().push(className);
+
+        ActivityRecord record = new ActivityRecord();
+        record.activity = activity;
+        activityStack.put(className, record);
     }
 }

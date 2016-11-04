@@ -109,11 +109,12 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         Activity current = stackManager.getTop();
         if (current != null) {
             lifecycleManager.pauseAndStopActivity(current);
+            lifecycleManager.finishActivity(current);
         }
 
         Activity activity = lifecycleManager.createAndStartActivity(who, token, intent);
         if (activity != null) {
-            // stackManager.addActivityToBackStack(activity);
+            stackManager.addToTop(activity);
             // TODO: Figure out the best way to manage view stack and how to add this activity to the stack manager.
         }
     }
