@@ -120,6 +120,12 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     }
 
     @Override
+    public boolean attemptFinishActivity(IBinder token, int resultCode, Intent resultData, boolean finishTask) {
+        Log.w("KEVIN", "IBinder: " + token.toString());
+        return true;
+    }
+
+    @Override
     public void postActivityOnCreate(Activity activity) {
         Log.d("jesse", "this is the post Activity on Create");
         Toast.makeText(activity.getApplicationContext(), "This is postActivityOnCreate", Toast.LENGTH_SHORT).show();

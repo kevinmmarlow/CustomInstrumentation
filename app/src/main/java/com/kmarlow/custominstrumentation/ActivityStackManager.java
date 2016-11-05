@@ -1,10 +1,16 @@
 package com.kmarlow.custominstrumentation;
 
 import android.app.Activity;
+import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.util.ArrayMap;
+import android.util.Log;
 
+import java.lang.reflect.Method;
 import java.util.Iterator;
+
+import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.ACTIVITY_PACKAGE;
+import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.getSuperclass;
 
 public class ActivityStackManager {
     private static final String ANDROMIUM_ROOT_KEY = "Andromium";
@@ -77,11 +83,30 @@ public class ActivityStackManager {
     }
 
     public void addToTop(Activity activity) {
-        String className = activity.getClass().getCanonicalName();
+        Class<? extends Activity> activityClass = activity.getClass();
+
+        String className = activityClass.getCanonicalName();
         viewStack.buildUpon().push(className);
 
-        ActivityRecord record = new ActivityRecord();
-        record.activity = activity;
+        Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+        if (superActivityClazz == null) {
+            throw new IllegalStateException(ACTIVITY_PACKAGE + " not found.");
+        }
+
+        IBinder token = null;
+        try {
+            Method getActivityToken = superActivityClazz.getDeclaredMethod("getActivityToken");
+            getActivityToken.setAccessible(true);
+            token = (IBinder) getActivityToken.invoke(activity);
+        } catch (Exception ignored) {
+            Log.e("KEVIN", "Unable to get token: " + ignored.getLocalizedMessage());
+        }
+
+        if (token == null) {
+            throw new IllegalStateException("No andromium token set for activity " + activityClass.getSimpleName());
+        }
+
+        ActivityRecord record = ADMToken.tokenToActivityRecordLocked(token);
         activityStack.put(className, record);
     }
 }

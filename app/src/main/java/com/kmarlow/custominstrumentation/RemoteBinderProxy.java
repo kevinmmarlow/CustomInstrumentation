@@ -1,5 +1,6 @@
 package com.kmarlow.custominstrumentation;
 
+import android.content.Intent;
 import android.os.IBinder;
 import android.os.IInterface;
 import android.os.Parcel;
@@ -13,11 +14,11 @@ import static android.app.IActivityManager.FINISH_SUB_ACTIVITY_TRANSACTION;
 
 public class RemoteBinderProxy implements IBinder {
     private final IBinder remote;
-    private final ActivityLifecycleManager lifecycleManager;
+    private final AndromiumLifecycleCallbacks lifecycleCallbacks;
 
-    public RemoteBinderProxy(IBinder remoteBinder, ActivityLifecycleManager activityLifecycleManager) {
+    public RemoteBinderProxy(IBinder remoteBinder, AndromiumLifecycleCallbacks activityLifecycleManager) {
         this.remote = remoteBinder;
-        this.lifecycleManager = activityLifecycleManager;
+        this.lifecycleCallbacks = activityLifecycleManager;
     }
 
     @Override
@@ -54,8 +55,18 @@ public class RemoteBinderProxy implements IBinder {
     public boolean transact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
 
         if (code == FINISH_ACTIVITY_TRANSACTION) {
-//            lifecycleManager.finishActivity();
-            return false;
+
+            // FIXME: WHY DOES THE TOKEN GET INVALIDATED??????
+            data.enforceInterface("");
+            IBinder token = data.readStrongBinder();
+            Intent resultData = null;
+            int resultCode = data.readInt();
+            if (data.readInt() != 0) {
+                resultData = Intent.CREATOR.createFromParcel(data);
+            }
+            boolean finishTask = (data.readInt() != 0);
+
+            return lifecycleCallbacks.attemptFinishActivity(token, resultCode, resultData, finishTask);
         }
 
         if (code == FINISH_ACTIVITY_AFFINITY_TRANSACTION) {

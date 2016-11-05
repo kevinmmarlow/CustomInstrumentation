@@ -12,4 +12,6 @@ public interface AndromiumLifecycleCallbacks {
     void postActivityOnCreate(Activity activity);
 
     void postActivityOnResume();
+
+    boolean attemptFinishActivity(IBinder token, int resultCode, Intent resultData, boolean finishTask);
 }

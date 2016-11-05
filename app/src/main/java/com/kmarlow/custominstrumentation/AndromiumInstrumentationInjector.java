@@ -52,7 +52,7 @@ public final class AndromiumInstrumentationInjector {
             Field mRemote = aDefault.getClass().getDeclaredField("mRemote");
             mRemote.setAccessible(true);
             IBinder remoteBinder = (IBinder) mRemote.get(aDefault);
-            mRemote.set(aDefault, new RemoteBinderProxy(remoteBinder, activityLifecycleManager));
+            mRemote.set(aDefault, new RemoteBinderProxy(remoteBinder, andromiumLifecycleCallbacks));
 
             return new Pair<>(andromiumInstrumentation, activityLifecycleManager);
         } catch (Exception e) {
@@ -85,7 +85,7 @@ public final class AndromiumInstrumentationInjector {
         return theField;
     }
 
-    static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
+    public static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
         Class clazzWithActivityThread = clazz.getClass();
 
         while (clazzWithActivityThread != null && !clazzWithActivityThread.getName().equals(packageName)) {

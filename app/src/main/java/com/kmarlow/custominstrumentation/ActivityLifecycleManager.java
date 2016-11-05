@@ -15,6 +15,7 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PersistableBundle;
 import android.util.Log;
 import android.view.Window;
 import android.widget.Toast;
@@ -64,7 +65,17 @@ public class ActivityLifecycleManager {
 
             Application application = loadedApk.makeApplication(false, instrumentation);
 
-            Class<Activity> superActivityClazz = attachActivity(token, intent, resolveInfo, loadedApk, activity, application);
+            ActivityRecord activityRecord = new ActivityRecord();
+            activityRecord.activity = activity;
+            activityRecord.packageInfo = loadedApk;
+            activityRecord.compatInfo = loadedApk.getCompatibilityInfo();
+            activityRecord.activityInfo = resolveInfo.activityInfo;
+            activityRecord.intent = intent;
+            activityRecord.state = new Bundle();
+            activityRecord.persistentState = new PersistableBundle();
+
+            ADMToken admToken = new ADMToken(activityRecord);
+            Class<Activity> superActivityClazz = attachActivity(admToken, intent, resolveInfo, loadedApk, activity, application);
 
             injectAndromiumWindow(activity, superActivityClazz);
 
@@ -75,7 +86,7 @@ public class ActivityLifecycleManager {
             }
 
             // FAKE SAVED INSTANCE STATE
-            Bundle icicle = new Bundle();
+            Bundle icicle = activityRecord.state;
 
             // Basically, we should keep a track of the activities ourselves,
             // manage the parent/child flow, and setup the next intent appropriately
@@ -89,7 +100,7 @@ public class ActivityLifecycleManager {
             // -------------------------------------------------
 
             // TODO: Save the bundle when we should stop the activity, "restore" it when we start
-            instrumentation.callActivityOnCreate(activity, icicle /* SAVED BUNDLE HERE */);
+            instrumentation.callActivityOnCreate(activity, icicle);
 
             // -------------------------------------------------
             // ---------------- CHECK IF FINISH ----------------
@@ -101,7 +112,7 @@ public class ActivityLifecycleManager {
 
             if (isFinished) {
                 Log.i(TAG, "Activity finish called in onCreate");
-//                instrumentation.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
+//                instrumentation.callActivityOnPostCreate(activity, icicle);
                 return null;
             }
 
@@ -111,7 +122,7 @@ public class ActivityLifecycleManager {
 
             if (restoreActivityState(activity, icicle, finished)) return null;
 
-            instrumentation.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
+            instrumentation.callActivityOnPostCreate(activity, icicle);
 
             resumeActivity(activity, superActivityClazz);
 
