@@ -24,6 +24,10 @@ android {
         preDexLibraries = false
         additionalParameters = ['--core-library']
     }
+
+    packagingOptions {
+        exclude '**/android/**'
+    }
 }
 
 repositories {

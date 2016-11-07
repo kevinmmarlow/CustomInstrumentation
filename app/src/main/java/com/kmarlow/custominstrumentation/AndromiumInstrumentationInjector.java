@@ -8,6 +8,7 @@ import android.content.ContextWrapper;
 import android.os.IBinder;
 import android.util.Log;
 import android.util.Pair;
+import android.util.Singleton;
 
 import java.lang.reflect.Field;
 
@@ -52,7 +53,14 @@ public final class AndromiumInstrumentationInjector {
             Field mRemote = aDefault.getClass().getDeclaredField("mRemote");
             mRemote.setAccessible(true);
             IBinder remoteBinder = (IBinder) mRemote.get(aDefault);
-            mRemote.set(aDefault, new RemoteBinderProxy(remoteBinder, andromiumLifecycleCallbacks));
+
+            Field gDefault = ActivityManagerNative.class.getDeclaredField("gDefault");
+            gDefault.setAccessible(true);
+            Singleton<IActivityManager> realGDefault = (Singleton<IActivityManager>) gDefault.get(ActivityManagerNative.class);
+
+            Field mInstance = gDefault.getType().getDeclaredField("mInstance");
+            mInstance.setAccessible(true);
+            mInstance.set(realGDefault, new ADMActivityManagerProxy(remoteBinder, andromiumLifecycleCallbacks));
 
             return new Pair<>(andromiumInstrumentation, activityLifecycleManager);
         } catch (Exception e) {
