@@ -102,6 +102,10 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     public void execStartActivity(Context who, IBinder token, Intent intent) {
         Toast.makeText(who, "Start " + intent.getComponent().getShortClassName(), Toast.LENGTH_SHORT).show();
 
+        if (controllerService.isTransitioning()) {
+            return;
+        }
+        
         String className = intent.getComponent().getClassName();
         boolean showingScreen = stackManager.isShowingScreen(className);
         if (showingScreen) {
@@ -127,13 +131,17 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
 
     @Override
     public boolean attemptFinishActivity(IBinder token, int resultCode, Intent resultData, boolean finishTask) {
+        if (controllerService.isTransitioning()) {
+            return false;
+        }
+
         ADMToken admToken = (ADMToken) token;
         ActivityRecord currentRecord = ADMToken.tokenToActivityRecordLocked(admToken);
 
         Activity current = stackManager.popTop();
         if (current != null) {
             lifecycleManager.pauseAndStopActivity(current);
-            lifecycleManager.finishActivity(current);
+            // lifecycleManager.finishActivity(current);
         }
 
         Activity previous = stackManager.peekTop();
