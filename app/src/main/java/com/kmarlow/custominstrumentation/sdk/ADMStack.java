@@ -1,4 +1,4 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 
-import static com.kmarlow.custominstrumentation.Preconditions.checkArgument;
 import static java.util.Collections.unmodifiableList;
 
 public class ADMStack implements Iterable<String> {
@@ -32,7 +31,7 @@ public class ADMStack implements Iterable<String> {
     }
 
     private ADMStack(List<String> stack) {
-        checkArgument(stack != null && !stack.isEmpty(), "Stack may not be empty");
+        Preconditions.checkArgument(stack != null && !stack.isEmpty(), "Stack may not be empty");
         this.stack = stack;
     }
 
@@ -174,14 +173,14 @@ public class ADMStack implements Iterable<String> {
             while (!isEmpty() && !peek().equals(state)) {
                 pop();
             }
-            checkArgument(!isEmpty(), String.format("%s not found in stack", state));
+            Preconditions.checkArgument(!isEmpty(), String.format("%s not found in stack", state));
             return this;
         }
 
         @NonNull
         public Builder pop(int count) {
             final int size = stack.size();
-            checkArgument(count <= size,
+            Preconditions.checkArgument(count <= size,
                     String.format((Locale) null, "Cannot pop %d elements, stack only has %d", count, size));
             while (count-- > 0) {
                 pop();

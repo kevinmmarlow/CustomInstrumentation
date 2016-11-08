@@ -1,8 +1,10 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
+import android.app.Activity;
 import android.app.ActivityManagerNative;
 import android.app.ActivityThread;
 import android.app.IActivityManager;
+import android.app.Instrumentation;
 import android.app.Service;
 import android.content.ContextWrapper;
 import android.os.IBinder;
@@ -13,13 +15,13 @@ import android.util.Singleton;
 import java.lang.reflect.Field;
 
 public final class AndromiumInstrumentationInjector {
-    private static final String TAG = AndromiumInstrumentationInjector.class.getName();
+    private static final String TAG = AndromiumInstrumentationInjector.class.getCanonicalName();
 
-    private static final String SERVICE_PACKAGE = "android.app.Service";
-    public static final String ACTIVITY_PACKAGE = "android.app.Activity";
+    private static final String SERVICE_PACKAGE = Service.class.getCanonicalName();
+    public static final String ACTIVITY_PACKAGE = Activity.class.getCanonicalName();
 
-    private static final String ACTIVITY_THREAD_PACKAGE = "android.app.ActivityThread";
-    private static final String INSTRUMENTATION_PACKAGE = "android.app.Instrumentation";
+    private static final String ACTIVITY_THREAD_PACKAGE = ActivityThread.class.getCanonicalName();
+    private static final String INSTRUMENTATION_PACKAGE = Instrumentation.class.getCanonicalName();
     private static final String ACTIVITY_THREAD_VAR_IN_SERVICE = "mThread";
     private static final String INSTRUMENTATION_FIELD = "mInstrumentation";
     public static final String SERVICE_TOKEN = "mToken";

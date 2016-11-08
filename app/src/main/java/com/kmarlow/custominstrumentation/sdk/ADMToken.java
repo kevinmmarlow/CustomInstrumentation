@@ -1,4 +1,4 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.os.IBinder;
 import android.os.RemoteException;

@@ -1,4 +1,4 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 public class Preconditions {
 

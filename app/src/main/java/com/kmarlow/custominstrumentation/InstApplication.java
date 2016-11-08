@@ -3,6 +3,8 @@ package com.kmarlow.custominstrumentation;
 import android.app.Application;
 import android.content.Intent;
 
+import com.kmarlow.custominstrumentation.sdk.AndromiumControllerService;
+
 
 public class InstApplication extends Application {
 

@@ -20,7 +20,7 @@
         <!--</activity>-->
 
         <service
-            android:name=".AndromiumControllerService"
+            android:name="com.kmarlow.custominstrumentation.sdk.AndromiumControllerService"
             android:enabled="true"
             android:exported="true"
             android:icon="@drawable/apk_icon"

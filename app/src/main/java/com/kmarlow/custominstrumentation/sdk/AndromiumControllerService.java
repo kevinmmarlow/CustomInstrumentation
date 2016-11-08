@@ -1,4 +1,4 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.app.Activity;
 import android.content.ComponentName;
@@ -16,6 +16,7 @@ import android.widget.Toast;
 import com.andromium.framework.AndromiumApi;
 import com.andromium.framework.ui.AndromiumAdapterFrameworkStub;
 import com.andromium.framework.ui.WindowConfig;
+import com.kmarlow.custominstrumentation.SubActivity;
 
 public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
 
@@ -39,7 +40,7 @@ public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
     }
 }
 
-class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks, StackDispatcher {
+class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks {
     private static final String TAG = AndromiumControllerServiceImpl.class.getSimpleName();
 
     private final AndromiumControllerService controllerService;
@@ -50,7 +51,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     AndromiumControllerServiceImpl(AndromiumControllerService controllerService, Intent launchIntent, int appId) {
         super(controllerService, launchIntent, appId);
         this.controllerService = controllerService;
-        this.stackManager = new ActivityStackManager(this);
+        this.stackManager = new ActivityStackManager();
 
         Pair<AndromiumInstrumentation, ActivityLifecycleManager> pair = AndromiumInstrumentationInjector.inject(controllerService, this);
         if (pair == null) {
@@ -105,7 +106,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         if (controllerService.isTransitioning()) {
             return;
         }
-        
+
         String className = intent.getComponent().getClassName();
         boolean showingScreen = stackManager.isShowingScreen(className);
         if (showingScreen) {

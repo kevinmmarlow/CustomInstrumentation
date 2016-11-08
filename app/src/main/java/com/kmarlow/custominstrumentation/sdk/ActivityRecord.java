@@ -1,4 +1,4 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.app.Activity;
 import android.app.LoadedApk;
@@ -36,6 +36,7 @@ public class ActivityRecord {
     LoadedApk packageInfo;
 
     List<ResultInfo> pendingResults;
+    List<Intent> pendingIntents;
 
     public ActivityRecord() {
         parent = null;

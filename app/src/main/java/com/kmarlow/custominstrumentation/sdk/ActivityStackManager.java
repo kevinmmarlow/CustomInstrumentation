@@ -1,67 +1,21 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.app.Activity;
 import android.os.IBinder;
-import android.support.annotation.NonNull;
 import android.util.ArrayMap;
 import android.util.Log;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;
 
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.ACTIVITY_PACKAGE;
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.getSuperclass;
-
 public class ActivityStackManager {
     private static final String ANDROMIUM_ROOT_KEY = "Andromium";
+    private static final String TAG = ActivityStackManager.class.getCanonicalName();
 
     final ArrayMap<String, ActivityRecord> activityStack = new ArrayMap<>();
     private ADMStack viewStack = ADMStack.single(ANDROMIUM_ROOT_KEY);
-    private final StackDispatcher dispatcher;
 
-    public ActivityStackManager(StackDispatcher dispatcher) {
-        this.dispatcher = dispatcher;
-    }
-
-    public void set(@NonNull final String newTopKey) {
-        if (newTopKey.equals(viewStack.top())) {
-            dispatch(viewStack, StackDispatcher.Direction.REPLACE);
-            return;
-        }
-
-        ADMStack.Builder builder = viewStack.buildUpon();
-        int count = 0;
-        // Search backward to see if we already have newTop on the stack
-        String preservedInstance = null;
-        for (Iterator<Object> it = viewStack.reverseIterator(); it.hasNext(); ) {
-            Object entry = it.next();
-
-            // If we find newTop on the stack, pop back to it.
-            if (entry.equals(newTopKey)) {
-                for (int i = 0; i < viewStack.size() - count; i++) {
-                    preservedInstance = builder.pop();
-                }
-                break;
-            } else {
-                count++;
-            }
-        }
-
-        ADMStack newHistory;
-        if (preservedInstance != null) {
-            // newTop was on the history. Put the preserved instance back on and dispatch.
-            builder.push(preservedInstance);
-            newHistory = builder.build();
-            dispatch(newHistory, StackDispatcher.Direction.BACKWARD);
-        } else {
-            // newTop was not on the history. Push it on and dispatch.
-            builder.push(newTopKey);
-            newHistory = builder.build();
-            dispatch(newHistory, StackDispatcher.Direction.FORWARD);
-        }
-    }
-
-    private void dispatch(ADMStack viewStack, StackDispatcher.Direction direction) {
+    public ActivityStackManager() {
     }
 
     public boolean isShowingScreen(String className) {
@@ -114,9 +68,9 @@ public class ActivityStackManager {
 
         viewStack = builder.build();
 
-        Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+        Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
         if (superActivityClazz == null) {
-            throw new IllegalStateException(ACTIVITY_PACKAGE + " not found.");
+            throw new IllegalStateException(AndromiumInstrumentationInjector.ACTIVITY_PACKAGE + " not found.");
         }
 
         IBinder token = null;
@@ -125,7 +79,7 @@ public class ActivityStackManager {
             getActivityToken.setAccessible(true);
             token = (IBinder) getActivityToken.invoke(activity);
         } catch (Exception ignored) {
-            Log.e("KEVIN", "Unable to get token: " + ignored.getLocalizedMessage());
+            Log.e(TAG, "Unable to get token: " + ignored.getLocalizedMessage());
         }
 
         if (token == null) {

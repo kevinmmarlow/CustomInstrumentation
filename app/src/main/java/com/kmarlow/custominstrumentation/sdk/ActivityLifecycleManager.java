@@ -1,10 +1,11 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.app.Activity;
 import android.app.ActivityThread;
 import android.app.Application;
 import android.app.Instrumentation;
 import android.app.LoadedApk;
+import android.app.ResultInfo;
 import android.app.VoiceInteractor;
 import android.content.Context;
 import android.content.Intent;
@@ -27,9 +28,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.ACTIVITY_PACKAGE;
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.getSuperclass;
+import java.util.List;
 
 public class ActivityLifecycleManager {
     private static final String TAG = ActivityLifecycleManager.class.getSimpleName();
@@ -72,7 +71,13 @@ public class ActivityLifecycleManager {
             activityRecord.compatInfo = loadedApk.getCompatibilityInfo();
             activityRecord.activityInfo = resolveInfo.activityInfo;
             activityRecord.intent = intent;
-            activityRecord.state = new Bundle();
+            activityRecord.intent.setExtrasClassLoader(loadedApk.getClassLoader());
+
+            // TODO: Should we null the state here?
+            activityRecord.state = null;
+            // activityRecord.state = new Bundle();
+            // activityRecord.state.setClassLoader(loadedApk.getClassLoader());
+
             activityRecord.persistentState = new PersistableBundle();
 
             ADMToken admToken = new ADMToken(activityRecord);
@@ -99,9 +104,9 @@ public class ActivityLifecycleManager {
     public Activity restartActivity(Activity activity) throws NoSuchFieldException, IllegalAccessException,
             NoSuchMethodException, InvocationTargetException, ClassNotFoundException, InstantiationException {
 
-        Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+        Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
         if (superActivityClazz == null) {
-            throw new IllegalStateException(ACTIVITY_PACKAGE + " not found.");
+            throw new IllegalStateException(AndromiumInstrumentationInjector.ACTIVITY_PACKAGE + " not found.");
         }
 
         Method getActivityToken = superActivityClazz.getDeclaredMethod("getActivityToken");
@@ -132,29 +137,50 @@ public class ActivityLifecycleManager {
 
         instrumentation.callActivityOnCreate(activity, icicle);
 
+        checkIfSuperCalled(activity, called);
+
+        activityRecord.stopped = true;
+
         // -------------------------------------------------
         // ---------------- CHECK IF FINISH ----------------
         // -------------------------------------------------
 
         Field finished = superActivityClazz.getDeclaredField(M_FINISHED);
         finished.setAccessible(true);
-        boolean isFinished = finished.getBoolean(activity);
 
-        if (isFinished) {
+        if (finished.getBoolean(activity)) {
             Log.i(TAG, "Activity finish called in onCreate");
-//                instrumentation.callActivityOnPostCreate(activity, icicle);
-            return null;
+            activityRecord.paused = true;
+            return activity;
         }
 
-        if (startActivity(activity, superActivityClazz, finished)) return null;
+        startActivity(activity, superActivityClazz);
+        activityRecord.stopped = false;
+
+        if (finished.getBoolean(activity)) {
+            Log.i(TAG, "Activity finish called in onStart");
+            activityRecord.paused = true;
+            return activity;
+        }
+
+        if (icicle != null) {
+            restoreActivityState(activity, icicle);
+        }
+
+        if (finished.getBoolean(activity)) {
+            Log.i(TAG, "Activity finish called in restoreActivityState");
+            activityRecord.paused = true;
+            return activity;
+        }
+
+        called.setBoolean(activity, false);
+        instrumentation.callActivityOnPostCreate(activity, icicle);
 
         checkIfSuperCalled(activity, called);
 
-        if (restoreActivityState(activity, icicle, finished)) return null;
+        activityRecord.paused = true;
 
-        instrumentation.callActivityOnPostCreate(activity, icicle);
-
-        resumeActivity(activity, superActivityClazz);
+        resumeActivity(activity, superActivityClazz, activityRecord);
 
         return activity;
     }
@@ -162,7 +188,7 @@ public class ActivityLifecycleManager {
     public void pauseAndStopActivity(Activity activity) {
 
         try {
-            Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+            Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
             Field finished = superActivityClazz.getDeclaredField(M_FINISHED);
             finished.setAccessible(true);
             boolean isFinished = finished.getBoolean(activity);
@@ -277,24 +303,14 @@ public class ActivityLifecycleManager {
      *
      * @param activity
      * @param superActivityClazz
-     * @param finished
-     * @return
      * @throws NoSuchMethodException
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      */
-    private boolean startActivity(Activity activity, Class<Activity> superActivityClazz, Field finished) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    private void startActivity(Activity activity, Class<Activity> superActivityClazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         Method performStart = superActivityClazz.getDeclaredMethod(PERFORM_START);
         performStart.setAccessible(true);
         performStart.invoke(activity);
-
-        boolean isFinished = finished.getBoolean(activity);
-
-        if (isFinished) {
-            Log.i(TAG, "Activity finish called in onStart");
-        }
-
-        return isFinished;
     }
 
     /**
@@ -302,20 +318,11 @@ public class ActivityLifecycleManager {
      *
      * @param activity
      * @param icicle
-     * @param finished
      * @return
      * @throws IllegalAccessException
      */
-    private boolean restoreActivityState(Activity activity, Bundle icicle, Field finished) throws IllegalAccessException {
-        instrumentation.callActivityOnRestoreInstanceState(activity, icicle /* SAVED BUNDLE HERE */);
-
-        boolean isFinished = (boolean) finished.get(activity);
-
-        if (isFinished) {
-            Log.i(TAG, "Activity finish called in onStart");
-        }
-
-        return isFinished;
+    private void restoreActivityState(Activity activity, Bundle icicle) throws IllegalAccessException {
+        instrumentation.callActivityOnRestoreInstanceState(activity, icicle);
     }
 
     /**
@@ -408,9 +415,9 @@ public class ActivityLifecycleManager {
 
         CharSequence title = activityInfo.loadLabel(appContext.getPackageManager());
 
-        Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+        Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
         if (superActivityClazz == null) {
-            throw new IllegalStateException(ACTIVITY_PACKAGE + " not found.");
+            throw new IllegalStateException(AndromiumInstrumentationInjector.ACTIVITY_PACKAGE + " not found.");
         }
 
         Class nonConfigInstances = null;
@@ -482,11 +489,12 @@ public class ActivityLifecycleManager {
      *
      * @param activity
      * @param superActivityClazz
+     * @param activityRecord
      * @throws NoSuchMethodException
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      */
-    private void resumeActivity(Activity activity, Class<Activity> superActivityClazz) throws
+    private void resumeActivity(Activity activity, Class<Activity> superActivityClazz, ActivityRecord activityRecord) throws
             NoSuchMethodException, IllegalAccessException, InvocationTargetException, NoSuchFieldException {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -508,12 +516,19 @@ public class ActivityLifecycleManager {
         // --------------- INTENT REDELIVERY ---------------
         // -------------------------------------------------
 
-        // FIXME: deliverNewIntents relies on activity stack checking
-//            r.activity.mFragments.noteStateNotSaved();
-//            if (r.pendingIntents != null) {
-//                deliverNewIntents(r, r.pendingIntents);
-//                r.pendingIntents = null;
-//            }
+
+        if (activityRecord.pendingIntents != null) {
+            List<Intent> intents = activityRecord.pendingIntents;
+            // deliverNewIntents(activityRecord, intents);
+            final int N = intents.size();
+            for (int i = 0; i < N; i++) {
+                Intent intent = intents.get(i);
+                intent.setExtrasClassLoader(activity.getClassLoader());
+                noteStateNotSaved.invoke(fragController);
+                instrumentation.callActivityOnNewIntent(activity, intent);
+            }
+            activityRecord.pendingIntents = null;
+        }
 
         // -------------------------------------------------
         // ---------------- RESULT DELIVERY ----------------
@@ -523,10 +538,26 @@ public class ActivityLifecycleManager {
         // setResult(...) and then have an override for finish(...) in order to send
         // the results back.
 
-//            if (r.pendingResults != null) {
-//                deliverResults(r, r.pendingResults);
-//                r.pendingResults = null;
-//            }
+        if (activityRecord.pendingResults != null) {
+            // deliverResults(r, r.pendingResults);
+            List<ResultInfo> results = activityRecord.pendingResults;
+            final int N = results.size();
+            for (int i = 0; i < N; i++) {
+                ResultInfo ri = results.get(i);
+
+                if (ri.mData != null) {
+                    ri.mData.setExtrasClassLoader(activity.getClassLoader());
+                }
+
+                Method dispatchActivityResult = superActivityClazz.getDeclaredMethod("dispatchActivityResult",
+                        String.class, int.class, int.class, Intent.class);
+                dispatchActivityResult.setAccessible(true);
+                dispatchActivityResult.invoke(activity, ri.mResultWho,
+                        ri.mRequestCode, ri.mResultCode, ri.mData);
+            }
+
+            activityRecord.pendingResults = null;
+        }
 
         Method performResume = superActivityClazz.getDeclaredMethod(PERFORM_RESUME);
         performResume.setAccessible(true);
@@ -534,5 +565,10 @@ public class ActivityLifecycleManager {
 
         Log.d(TAG, "Performing Resume");
         instrumentation.callActivityOnResume(activity);
+
+        activityRecord.paused = false;
+        activityRecord.stopped = false;
+        activityRecord.state = null;
+        activityRecord.persistentState = null;
     }
 }
