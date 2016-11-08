@@ -33,9 +33,15 @@ public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
         }
         return app;
     }
+
+    public void performClose(int appId) {
+        close(appId);
+    }
 }
 
 class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks, StackDispatcher {
+    private static final String TAG = AndromiumControllerServiceImpl.class.getSimpleName();
+
     private final AndromiumControllerService controllerService;
     private final ActivityStackManager stackManager;
     private final AndromiumInstrumentation instrumentation;
@@ -106,7 +112,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
             return;
         }
 
-        Activity current = stackManager.getTop();
+        Activity current = stackManager.peekTop();
         if (current != null) {
             lifecycleManager.pauseAndStopActivity(current);
             lifecycleManager.finishActivity(current);
@@ -121,24 +127,45 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
 
     @Override
     public boolean attemptFinishActivity(IBinder token, int resultCode, Intent resultData, boolean finishTask) {
-        Log.w("KEVIN", "IBinder: " + token.toString());
+        ADMToken admToken = (ADMToken) token;
+        ActivityRecord currentRecord = ADMToken.tokenToActivityRecordLocked(admToken);
+        Log.wtf(TAG, "ActivityRecord: " + currentRecord);
+
+        Activity current = stackManager.popTop();
+        if (current != null) {
+            lifecycleManager.pauseAndStopActivity(current);
+            lifecycleManager.finishActivity(current);
+        }
+
+        Activity previous = stackManager.peekTop();
+
+        if (previous == null) {
+            controllerService.performClose(appId);
+        } else {
+            try {
+                lifecycleManager.restartActivity(previous);
+            } catch (Exception error) {
+                Log.e(TAG, error.getLocalizedMessage());
+            }
+        }
+
         return true;
     }
 
     @Override
     public void postActivityOnCreate(Activity activity) {
-        Log.d("jesse", "this is the post Activity on Create");
+        Log.d(TAG, "this is the post Activity on Create");
         Toast.makeText(activity.getApplicationContext(), "This is postActivityOnCreate", Toast.LENGTH_SHORT).show();
         ViewGroup decorView = (ViewGroup) activity.getWindow().getDecorView();
         controllerService.transitionToScreen(appId, decorView);
-        Log.d("jesse", "this is the activity decorWindow: " + decorView);
+        Log.d(TAG, "this is the activity decorWindow: " + decorView);
 
         //TODO: pass the decor view in and show it on screen. Right now we try to draw an empty window so it doesn't show up because there is nothing to show.
     }
 
     @Override
     public void postActivityOnResume() {
-        Log.d("jesse", "this is the post Activity on resume");
+        Log.d(TAG, "this is the post Activity on resume");
         Toast.makeText(controllerService.getApplicationContext(), "this is postActivityOnResume", Toast.LENGTH_SHORT).show();
     }
 }

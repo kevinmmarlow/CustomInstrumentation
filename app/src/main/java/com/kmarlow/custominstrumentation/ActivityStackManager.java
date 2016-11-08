@@ -16,7 +16,7 @@ public class ActivityStackManager {
     private static final String ANDROMIUM_ROOT_KEY = "Andromium";
 
     final ArrayMap<String, ActivityRecord> activityStack = new ArrayMap<>();
-    private final ADMStack viewStack = ADMStack.single(ANDROMIUM_ROOT_KEY);
+    private ADMStack viewStack = ADMStack.single(ANDROMIUM_ROOT_KEY);
     private final StackDispatcher dispatcher;
 
     public ActivityStackManager(StackDispatcher dispatcher) {
@@ -72,10 +72,33 @@ public class ActivityStackManager {
         return activityStack.get(className);
     }
 
-    public Activity getTop() {
+    public Activity peekTop() {
         Iterator<String> reverseIterator = viewStack.reverseIterator();
         if (reverseIterator.hasNext()) {
             ActivityRecord record = activityStack.get(reverseIterator.next());
+            return record == null ? null : record.activity;
+        }
+
+        return null;
+    }
+
+    public Activity popTop() {
+        if (viewStack.size() > 0) {
+
+            ADMStack.Builder builder = viewStack.buildUpon();
+            String key = builder.peek();
+
+            if (key == null || key.equals(ANDROMIUM_ROOT_KEY)) {
+                return null;
+            }
+
+            builder.pop();
+
+            ActivityRecord record = activityStack.get(key);
+
+            viewStack = builder.build();
+            activityStack.remove(key);
+
             return record == null ? null : record.activity;
         }
 
@@ -86,7 +109,10 @@ public class ActivityStackManager {
         Class<? extends Activity> activityClass = activity.getClass();
 
         String className = activityClass.getCanonicalName();
-        viewStack.buildUpon().push(className);
+        ADMStack.Builder builder = viewStack.buildUpon();
+        builder.push(className);
+
+        viewStack = builder.build();
 
         Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
         if (superActivityClazz == null) {

@@ -4,14 +4,12 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.view.IApplicationToken;
 
-import java.lang.ref.WeakReference;
-
 public class ADMToken extends IApplicationToken.Stub {
 
-    private final WeakReference<ActivityRecord> weakActivity;
+    private final ActivityRecord activityRecord;
 
     public ADMToken(ActivityRecord activityRecord) {
-        this.weakActivity = new WeakReference<ActivityRecord>(activityRecord);
+        this.activityRecord = activityRecord;
     }
 
     @Override
@@ -41,7 +39,7 @@ public class ADMToken extends IApplicationToken.Stub {
 
     public static final ActivityRecord tokenToActivityRecordLocked(IBinder token) {
         if (token != null && token instanceof ADMToken) {
-            return ((ADMToken) token).weakActivity.get();
+            return ((ADMToken) token).activityRecord;
         }
 
         return null;

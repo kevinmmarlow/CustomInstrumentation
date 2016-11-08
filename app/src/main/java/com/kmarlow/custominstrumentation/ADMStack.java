@@ -38,13 +38,13 @@ public class ADMStack implements Iterable<String> {
 
     @NonNull
     public <T> Iterator<T> reverseIterator() {
-        return new ReadStateIterator<>(stack.iterator());
+        return new ReadStateIterator<>(new ReverseIterator<>(stack));
     }
 
     @NonNull
     @Override
     public Iterator<String> iterator() {
-        return new ReadStateIterator<>(new ReverseIterator<>(stack));
+        return new ReadStateIterator<>(stack.iterator());
     }
 
     public int size() {
@@ -139,7 +139,7 @@ public class ADMStack implements Iterable<String> {
          * @return null if the stack is empty.
          */
         @Nullable
-        public Object peek() {
+        public String peek() {
             return stack.isEmpty() ? null : stack.get(stack.size() - 1);
         }
 
