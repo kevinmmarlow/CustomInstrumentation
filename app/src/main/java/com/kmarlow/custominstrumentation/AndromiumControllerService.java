@@ -115,7 +115,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         Activity current = stackManager.peekTop();
         if (current != null) {
             lifecycleManager.pauseAndStopActivity(current);
-            lifecycleManager.finishActivity(current);
+            // lifecycleManager.finishActivity(current);
         }
 
         Activity activity = lifecycleManager.createAndStartActivity(who, token, intent);
@@ -129,7 +129,6 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     public boolean attemptFinishActivity(IBinder token, int resultCode, Intent resultData, boolean finishTask) {
         ADMToken admToken = (ADMToken) token;
         ActivityRecord currentRecord = ADMToken.tokenToActivityRecordLocked(admToken);
-        Log.wtf(TAG, "ActivityRecord: " + currentRecord);
 
         Activity current = stackManager.popTop();
         if (current != null) {
@@ -154,18 +153,18 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
 
     @Override
     public void postActivityOnCreate(Activity activity) {
-        Log.d(TAG, "this is the post Activity on Create");
+        Log.d(TAG, "This is the post Activity on Create");
         Toast.makeText(activity.getApplicationContext(), "This is postActivityOnCreate", Toast.LENGTH_SHORT).show();
         ViewGroup decorView = (ViewGroup) activity.getWindow().getDecorView();
         controllerService.transitionToScreen(appId, decorView);
-        Log.d(TAG, "this is the activity decorWindow: " + decorView);
+        Log.d(TAG, "This is the activity decorWindow: " + decorView);
 
         //TODO: pass the decor view in and show it on screen. Right now we try to draw an empty window so it doesn't show up because there is nothing to show.
     }
 
     @Override
     public void postActivityOnResume() {
-        Log.d(TAG, "this is the post Activity on resume");
-        Toast.makeText(controllerService.getApplicationContext(), "this is postActivityOnResume", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "This is the post Activity on resume");
+        Toast.makeText(controllerService.getApplicationContext(), "This is postActivityOnResume", Toast.LENGTH_SHORT).show();
     }
 }

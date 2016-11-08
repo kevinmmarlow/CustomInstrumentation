@@ -471,6 +471,7 @@ public class ADMActivityManagerProxy extends Binder implements IActivityManager 
         reply.recycle();
     }
 
+    // Version 23
     public int broadcastIntent(IApplicationThread caller,
                                Intent intent, String resolvedType, IIntentReceiver resultTo,
                                int resultCode, String resultData, Bundle map,
@@ -489,6 +490,35 @@ public class ADMActivityManagerProxy extends Binder implements IActivityManager 
         data.writeStringArray(requiredPermissions);
         data.writeInt(appOp);
         data.writeBundle(options);
+        data.writeInt(serialized ? 1 : 0);
+        data.writeInt(sticky ? 1 : 0);
+        data.writeInt(userId);
+        mRemote.transact(BROADCAST_INTENT_TRANSACTION, data, reply, 0);
+        reply.readException();
+        int res = reply.readInt();
+        reply.recycle();
+        data.recycle();
+        return res;
+    }
+
+    // Version 22
+    public int broadcastIntent(IApplicationThread caller,
+                               Intent intent, String resolvedType, IIntentReceiver resultTo,
+                               int resultCode, String resultData, Bundle map,
+                               String requiredPermission, int appOp, boolean serialized,
+                               boolean sticky, int userId) throws RemoteException {
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        data.writeInterfaceToken(IActivityManager.descriptor);
+        data.writeStrongBinder(caller != null ? caller.asBinder() : null);
+        intent.writeToParcel(data, 0);
+        data.writeString(resolvedType);
+        data.writeStrongBinder(resultTo != null ? resultTo.asBinder() : null);
+        data.writeInt(resultCode);
+        data.writeString(resultData);
+        data.writeBundle(map);
+        data.writeString(requiredPermission);
+        data.writeInt(appOp);
         data.writeInt(serialized ? 1 : 0);
         data.writeInt(sticky ? 1 : 0);
         data.writeInt(userId);
@@ -1123,6 +1153,7 @@ public class ADMActivityManagerProxy extends Binder implements IActivityManager 
         return res;
     }
 
+    // Version 23
     public ComponentName startService(IApplicationThread caller, Intent service,
                                       String resolvedType, String callingPackage, int userId) throws RemoteException {
         Parcel data = Parcel.obtain();
@@ -1132,6 +1163,24 @@ public class ADMActivityManagerProxy extends Binder implements IActivityManager 
         service.writeToParcel(data, 0);
         data.writeString(resolvedType);
         data.writeString(callingPackage);
+        data.writeInt(userId);
+        mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);
+        reply.readException();
+        ComponentName res = ComponentName.readFromParcel(reply);
+        data.recycle();
+        reply.recycle();
+        return res;
+    }
+
+    // Version 22
+    public ComponentName startService(IApplicationThread caller, Intent service,
+                                      String resolvedType, int userId) throws RemoteException {
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        data.writeInterfaceToken(IActivityManager.descriptor);
+        data.writeStrongBinder(caller != null ? caller.asBinder() : null);
+        service.writeToParcel(data, 0);
+        data.writeString(resolvedType);
         data.writeInt(userId);
         mRemote.transact(START_SERVICE_TRANSACTION, data, reply, 0);
         reply.readException();
