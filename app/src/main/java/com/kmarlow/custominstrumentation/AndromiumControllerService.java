@@ -4,7 +4,9 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.support.v4.content.IntentCompat;
 import android.util.Log;
 import android.view.View;
@@ -14,6 +16,8 @@ import android.widget.Toast;
 import com.andromium.framework.AndromiumApi;
 import com.andromium.framework.ui.AndromiumAdapterFrameworkStub;
 import com.andromium.framework.ui.WindowConfig;
+
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
 
@@ -34,20 +38,30 @@ public class AndromiumControllerService extends AndromiumAdapterFrameworkStub {
 }
 
 class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLifecycleCallbacks {
+    private static final long TIME_BETWEEN_PERMISSION_CHECK_INTERVAL = 60000;
     private AndromiumControllerService controllerService;
+    private static long lastPermissionCheckAppUsage = 0;
 
     AndromiumControllerServiceImpl(AndromiumControllerService controllerService, Intent launchIntent, int appId) {
         super(controllerService, launchIntent, appId);
         this.controllerService = controllerService;
 
-        AndromiumInstrumentationInjector.inject(controllerService, this);
-        controllerService.initWindow(this, appId);
+        if (!canDrawOverlays() &&
+                (System.currentTimeMillis() - lastPermissionCheckAppUsage)
+                        > TIME_BETWEEN_PERMISSION_CHECK_INTERVAL) {
+            Log.d("jesse", "this is show app usage dialog");
+            showOverlayDialogActivity();
+        } else {
+            Log.d("jesse", "this is not being hit");
+            AndromiumInstrumentationInjector.inject(controllerService, this);
+            controllerService.initWindow(this, appId);
 
-        // TODO: Call into the LAUNCHER activity
-        // startLauncherActivity();
-        Intent intent = new Intent(controllerService, SubActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        controllerService.startActivity(intent);
+            // TODO: Call into the LAUNCHER activity
+            // startLauncherActivity();
+            Intent intent = new Intent(controllerService, SubActivity.class);
+            intent.setFlags(FLAG_ACTIVITY_NEW_TASK);
+            controllerService.startActivity(intent);
+        }
     }
 
     private void startLauncherActivity() {
@@ -96,4 +110,25 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         Log.d("jesse", "this is the post Activity on resume");
         Toast.makeText(controllerService.getApplicationContext(), "this is postActivityOnResume", Toast.LENGTH_SHORT).show();
     }
+
+    private void showOverlayDialogActivity() {
+        Intent intent = new Intent(controllerService, OverlayDialogActivity.class);
+        intent.setFlags(FLAG_ACTIVITY_NEW_TASK);
+        controllerService.getApplicationContext().startActivity(intent);
+    }
+
+    /**
+     * Check to see if user have granted appUsageData to Andromium OS
+     *
+     * @return
+     */
+    private boolean canDrawOverlays() {
+        // for device running kitkat or below, we automatically have app access permission.
+        if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return true;
+        } else {
+            return Settings.canDrawOverlays(controllerService);
+        }
+    }
+
 }
