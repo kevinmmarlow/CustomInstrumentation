@@ -26,17 +26,16 @@ public class ActivityStackManager {
         return activityStack.get(className);
     }
 
-    public Activity peekTop() {
+    public ActivityRecord peekTop() {
         Iterator<String> reverseIterator = viewStack.reverseIterator();
         if (reverseIterator.hasNext()) {
-            ActivityRecord record = activityStack.get(reverseIterator.next());
-            return record == null ? null : record.activity;
+            return activityStack.get(reverseIterator.next());
         }
 
         return null;
     }
 
-    public Activity popTop() {
+    public ActivityRecord popTop() {
         if (viewStack.size() > 0) {
 
             ADMStack.Builder builder = viewStack.buildUpon();
@@ -53,7 +52,7 @@ public class ActivityStackManager {
             viewStack = builder.build();
             activityStack.remove(key);
 
-            return record == null ? null : record.activity;
+            return record;
         }
 
         return null;

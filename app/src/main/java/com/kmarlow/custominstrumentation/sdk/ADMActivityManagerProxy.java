@@ -3512,5 +3512,25 @@ public class ADMActivityManagerProxy extends Binder implements IActivityManager 
         return res != 0;
     }
 
+    public IActivityContainer getEnclosingActivityContainer(IBinder activityToken)
+            throws RemoteException {
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        data.writeInterfaceToken(IActivityManager.descriptor);
+        data.writeStrongBinder(activityToken);
+        mRemote.transact(GET_ACTIVITY_CONTAINER_TRANSACTION, data, reply, 0);
+        reply.readException();
+        final int result = reply.readInt();
+        final IActivityContainer res;
+        if (result == 1) {
+            res = IActivityContainer.Stub.asInterface(reply.readStrongBinder());
+        } else {
+            res = null;
+        }
+        data.recycle();
+        reply.recycle();
+        return res;
+    }
+
     private IBinder mRemote;
 }

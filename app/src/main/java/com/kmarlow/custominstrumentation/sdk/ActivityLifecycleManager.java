@@ -185,7 +185,7 @@ public class ActivityLifecycleManager {
         return activity;
     }
 
-    public void pauseAndStopActivity(Activity activity) {
+    public Bundle pauseAndStopActivity(Activity activity) {
 
         try {
             Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
@@ -194,7 +194,7 @@ public class ActivityLifecycleManager {
             boolean isFinished = finished.getBoolean(activity);
 
             if (isFinished) {
-                return;
+                return null;
             }
 
             Field called = superActivityClazz.getDeclaredField(M_CALLED);
@@ -218,10 +218,14 @@ public class ActivityLifecycleManager {
             performStop.setAccessible(true);
             performStop.invoke(activity);
 
+            return outState;
+
         } catch (Exception e) {
             Log.wtf(TAG, e);
             Toast.makeText(activity, "Andromium is unsupported on this version", Toast.LENGTH_SHORT).show();
         }
+
+        return null;
     }
 
     public void finishActivity(Activity activity) {

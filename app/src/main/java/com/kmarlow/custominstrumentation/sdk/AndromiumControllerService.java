@@ -5,6 +5,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v4.content.IntentCompat;
 import android.util.Log;
@@ -52,6 +53,10 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         super(controllerService, launchIntent, appId);
         this.controllerService = controllerService;
         this.stackManager = new ActivityStackManager();
+
+        // Uncomment to check for leaks
+        // RefWatcher refWatcher = InstApplication.getRefWatcher(controllerService);
+        // refWatcher.watch(this);
 
         Pair<AndromiumInstrumentation, ActivityLifecycleManager> pair = AndromiumInstrumentationInjector.inject(controllerService, this);
         if (pair == null) {
@@ -117,9 +122,10 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
             return;
         }
 
-        Activity current = stackManager.peekTop();
-        if (current != null) {
-            lifecycleManager.pauseAndStopActivity(current);
+        ActivityRecord current = stackManager.peekTop();
+        if (current != null && current.activity != null) {
+            Bundle outState = lifecycleManager.pauseAndStopActivity(current.activity);
+            current.state = outState;
             // lifecycleManager.finishActivity(current);
         }
 
@@ -139,19 +145,20 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
         ADMToken admToken = (ADMToken) token;
         ActivityRecord currentRecord = ADMToken.tokenToActivityRecordLocked(admToken);
 
-        Activity current = stackManager.popTop();
-        if (current != null) {
-            lifecycleManager.pauseAndStopActivity(current);
-            // lifecycleManager.finishActivity(current);
+        ActivityRecord current = stackManager.popTop();
+        if (current != null && current.activity != null) {
+            // Don't keep state, this is a full tear down.
+            lifecycleManager.pauseAndStopActivity(current.activity);
+            lifecycleManager.finishActivity(current.activity);
         }
 
-        Activity previous = stackManager.peekTop();
+        ActivityRecord previous = stackManager.peekTop();
 
         if (previous == null) {
             controllerService.performClose(appId);
-        } else {
+        } else if (previous.activity != null) {
             try {
-                lifecycleManager.restartActivity(previous);
+                lifecycleManager.restartActivity(previous.activity);
             } catch (Exception error) {
                 Log.e(TAG, error.getLocalizedMessage());
             }
