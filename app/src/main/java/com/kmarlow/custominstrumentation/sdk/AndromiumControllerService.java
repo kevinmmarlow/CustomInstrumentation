@@ -10,6 +10,7 @@ import android.os.IBinder;
 import android.support.v4.content.IntentCompat;
 import android.util.Log;
 import android.util.Pair;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -100,6 +101,39 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     }
 
     @Override
+    public boolean onKeyEvent(KeyEvent event) {
+        if (event != null) {
+            if (KeyEvent.KEYCODE_BACK == event.getKeyCode()) {
+                // delegate to back key handler
+                if(KeyEvent.ACTION_UP == event.getAction()) {
+                    onBackPressed();
+                }
+                return true;
+            } else if (KeyEvent.ACTION_DOWN == event.getAction()) {
+                // delegate to key down handler
+                return onKeyDown(event.getKeyCode(), event);
+            } else if (KeyEvent.ACTION_UP == event.getAction()) {
+                // delete to key up handler
+                return onKeyUp(event.getKeyCode(), event);
+            }
+        }
+
+        return super.onKeyEvent(event);
+    }
+
+    private void onBackPressed() {
+        finishTopActivity();
+    }
+
+    private boolean onKeyUp(int keyCode, KeyEvent event) {
+        return false;
+    }
+
+    private boolean onKeyDown(int keyCode, KeyEvent event) {
+        return false;
+    }
+
+    @Override
     public WindowConfig getWindowConfiguration() {
         return new WindowConfig(600, 500, true);
     }
@@ -142,28 +176,7 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
             return false;
         }
 
-        ADMToken admToken = (ADMToken) token;
-        ActivityRecord currentRecord = ADMToken.tokenToActivityRecordLocked(admToken);
-
-        ActivityRecord current = stackManager.popTop();
-        if (current != null && current.activity != null) {
-            // Don't keep state, this is a full tear down.
-            lifecycleManager.pauseAndStopActivity(current.activity);
-            lifecycleManager.finishActivity(current.activity);
-        }
-
-        ActivityRecord previous = stackManager.peekTop();
-
-        if (previous == null) {
-            controllerService.performClose(appId);
-        } else if (previous.activity != null) {
-            try {
-                lifecycleManager.restartActivity(previous.activity);
-            } catch (Exception error) {
-                Log.e(TAG, error.getLocalizedMessage());
-            }
-        }
-
+        finishTopActivity();
         return true;
     }
 
@@ -182,5 +195,26 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
     public void postActivityOnResume() {
         Log.d(TAG, "This is the post Activity on resume");
         Toast.makeText(controllerService.getApplicationContext(), "This is postActivityOnResume", Toast.LENGTH_SHORT).show();
+    }
+
+    private void finishTopActivity() {
+        ActivityRecord current = stackManager.popTop();
+        if (current != null && current.activity != null) {
+            // Don't keep state, this is a full tear down.
+            lifecycleManager.pauseAndStopActivity(current.activity);
+            lifecycleManager.finishActivity(current.activity);
+        }
+
+        ActivityRecord previous = stackManager.peekTop();
+
+        if (previous == null) {
+            controllerService.performClose(appId);
+        } else if (previous.activity != null) {
+            try {
+                lifecycleManager.restartActivity(previous.activity);
+            } catch (Exception error) {
+                Log.e(TAG, error.getLocalizedMessage());
+            }
+        }
     }
 }
