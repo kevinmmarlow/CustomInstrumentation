@@ -19,4 +19,8 @@ public class ThirdActivity extends Activity {
         });
     }
 
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+    }
 }

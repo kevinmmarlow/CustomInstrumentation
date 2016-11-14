@@ -102,35 +102,13 @@ class AndromiumControllerServiceImpl extends AndromiumApi implements AndromiumLi
 
     @Override
     public boolean onKeyEvent(KeyEvent event) {
-        if (event != null) {
-            if (KeyEvent.KEYCODE_BACK == event.getKeyCode()) {
-                // delegate to back key handler
-                if(KeyEvent.ACTION_UP == event.getAction()) {
-                    onBackPressed();
-                }
-                return true;
-            } else if (KeyEvent.ACTION_DOWN == event.getAction()) {
-                // delegate to key down handler
-                return onKeyDown(event.getKeyCode(), event);
-            } else if (KeyEvent.ACTION_UP == event.getAction()) {
-                // delete to key up handler
-                return onKeyUp(event.getKeyCode(), event);
-            }
+        ActivityRecord current = stackManager.peekTop();
+        if (current != null && current.activity != null) {
+            Activity currentActivity = current.activity;
+            return currentActivity.dispatchKeyEvent(event);
         }
 
         return super.onKeyEvent(event);
-    }
-
-    private void onBackPressed() {
-        finishTopActivity();
-    }
-
-    private boolean onKeyUp(int keyCode, KeyEvent event) {
-        return false;
-    }
-
-    private boolean onKeyDown(int keyCode, KeyEvent event) {
-        return false;
     }
 
     @Override
