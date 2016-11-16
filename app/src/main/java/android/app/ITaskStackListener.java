@@ -17,6 +17,10 @@ package android.app;
 
 import android.os.IBinder;
 
+/**
+ * THIS IS A SHADOW OF THE ANDROID SOURCE CLASS. IT EXISTS ONLY TO PROVIDE UNHIDDEN
+ * REFERENCES TO COMPILE AGAINST.
+ */
 public interface ITaskStackListener {
     /** Called whenever there are changes to the state of tasks in a stack. */
     void onTaskStackChanged();

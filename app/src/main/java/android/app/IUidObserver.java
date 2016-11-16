@@ -17,6 +17,10 @@ package android.app;
 
 import android.os.IBinder;
 
+/**
+ * THIS IS A SHADOW OF THE ANDROID SOURCE CLASS. IT EXISTS ONLY TO PROVIDE UNHIDDEN
+ * REFERENCES TO COMPILE AGAINST.
+ */
 public interface IUidObserver {
     /**
      * General report of a state change of an uid.

@@ -39,7 +39,10 @@ import com.android.internal.os.IResultReceiver;
 
 import java.util.List;
 
-
+/**
+ * THIS IS A SHADOW OF THE ANDROID SOURCE CLASS. IT EXISTS ONLY TO PROVIDE UNHIDDEN
+ * REFERENCES TO COMPILE AGAINST.
+ */
 public interface IActivityManager extends IInterface {
     public int startActivity(IApplicationThread caller, String callingPackage, Intent intent,
                              String resolvedType, IBinder resultTo, String resultWho, int requestCode, int flags,
@@ -919,8 +922,8 @@ public interface IActivityManager extends IInterface {
     int DELETE_ACTIVITY_CONTAINER_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 185;
     int SET_PROCESS_MEMORY_TRIM_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 186;
 
-    int GET_HOME_ACTIVITY_TOKEN_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+183;
-    int GET_ACTIVITY_CONTAINER_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION+184;
+    int GET_HOME_ACTIVITY_TOKEN_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 183;
+    int GET_ACTIVITY_CONTAINER_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 184;
 
 
     // Start of L transactions

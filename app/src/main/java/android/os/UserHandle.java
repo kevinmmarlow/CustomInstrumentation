@@ -2,16 +2,23 @@ package android.os;
 
 import android.annotation.UserIdInt;
 
+/**
+ * THIS IS A SHADOW OF THE ANDROID SOURCE CLASS. IT EXISTS ONLY TO PROVIDE UNHIDDEN
+ * REFERENCES TO COMPILE AGAINST.
+ */
 public final class UserHandle implements Parcelable {
 
     public static final int PER_USER_RANGE = 100000;
 
     public static final boolean MU_ENABLED = true;
 
-    public static final @UserIdInt
+    public static final
+    @UserIdInt
     int USER_NULL = -10000;
 
-    public static final @UserIdInt int USER_SYSTEM = 0;
+    public static final
+    @UserIdInt
+    int USER_SYSTEM = 0;
 
     final int mHandle;
 
@@ -19,11 +26,15 @@ public final class UserHandle implements Parcelable {
         mHandle = h;
     }
 
-    public static @UserIdInt int myUserId() {
+    public static
+    @UserIdInt
+    int myUserId() {
         return getUserId(Process.myUid());
     }
 
-    public static @UserIdInt int getUserId(int uid) {
+    public static
+    @UserIdInt
+    int getUserId(int uid) {
         if (MU_ENABLED) {
             return uid / PER_USER_RANGE;
         } else {
@@ -45,9 +56,8 @@ public final class UserHandle implements Parcelable {
      * Write a UserHandle to a Parcel, handling null pointers.  Must be
      * read with {@link #readFromParcel(Parcel)}.
      *
-     * @param h The UserHandle to be written.
+     * @param h   The UserHandle to be written.
      * @param out The Parcel in which the UserHandle will be placed.
-     *
      * @see #readFromParcel(Parcel)
      */
     public static void writeToParcel(UserHandle h, Parcel out) {
@@ -66,7 +76,6 @@ public final class UserHandle implements Parcelable {
      * @param in The Parcel from which to read the UserHandle
      * @return Returns a new UserHandle matching the previously written
      * object, or null if a null had been written.
-     *
      * @see #writeToParcel(UserHandle, Parcel)
      */
     public static UserHandle readFromParcel(Parcel in) {
@@ -93,7 +102,7 @@ public final class UserHandle implements Parcelable {
      * to handle a null UserHandle here.
      *
      * @param in The Parcel containing the previously written UserHandle,
-     * positioned at the location in the buffer where it was written.
+     *           positioned at the location in the buffer where it was written.
      */
     public UserHandle(Parcel in) {
         mHandle = in.readInt();

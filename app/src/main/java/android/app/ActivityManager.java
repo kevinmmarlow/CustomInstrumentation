@@ -3,6 +3,10 @@ package android.app;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+/**
+ * THIS IS A SHADOW OF THE ANDROID SOURCE CLASS. IT EXISTS ONLY TO PROVIDE UNHIDDEN
+ * REFERENCES TO COMPILE AGAINST.
+ */
 public class ActivityManager {
 
     public static class TaskDescription implements Parcelable {

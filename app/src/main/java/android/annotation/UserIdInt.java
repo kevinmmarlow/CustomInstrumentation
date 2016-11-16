@@ -9,10 +9,13 @@ import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
+ * THIS IS A SHADOW OF THE ANDROID SOURCE CLASS. IT EXISTS ONLY TO PROVIDE UNHIDDEN
+ * REFERENCES TO COMPILE AGAINST.
+ *
  * Denotes that the annotated element is a multi-user user ID. This is
  * <em>not</em> the same as a UID.
  *
- * @hide
+ *
  */
 @Retention(SOURCE)
 @Target({METHOD, PARAMETER, FIELD})
