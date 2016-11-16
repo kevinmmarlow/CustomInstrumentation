@@ -13,6 +13,7 @@ import android.util.Pair;
 import android.util.Singleton;
 
 import java.lang.reflect.Field;
+import java.util.Locale;
 
 public final class AndromiumInstrumentationInjector {
     private static final String TAG = AndromiumInstrumentationInjector.class.getCanonicalName();
@@ -100,6 +101,12 @@ public final class AndromiumInstrumentationInjector {
 
         while (clazzWithActivityThread != null && !clazzWithActivityThread.getName().equals(packageName)) {
             clazzWithActivityThread = clazzWithActivityThread.getSuperclass();
+        }
+
+        if (clazzWithActivityThread == null) {
+            throw new IllegalStateException(String.format(Locale.getDefault(),
+                    "Superclass not found with package name %s for class %s.",
+                    packageName, clazz.getClass().getSimpleName()));
         }
 
         return clazzWithActivityThread;
