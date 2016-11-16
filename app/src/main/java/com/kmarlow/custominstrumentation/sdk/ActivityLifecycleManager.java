@@ -1,10 +1,11 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
 import android.app.Activity;
 import android.app.ActivityThread;
 import android.app.Application;
 import android.app.Instrumentation;
 import android.app.LoadedApk;
+import android.app.ResultInfo;
 import android.app.VoiceInteractor;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +16,8 @@ import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PersistableBundle;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.Window;
 import android.widget.Toast;
@@ -25,9 +28,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.ACTIVITY_PACKAGE;
-import static com.kmarlow.custominstrumentation.AndromiumInstrumentationInjector.getSuperclass;
+import java.util.List;
 
 public class ActivityLifecycleManager {
     private static final String TAG = ActivityLifecycleManager.class.getSimpleName();
@@ -64,7 +65,23 @@ public class ActivityLifecycleManager {
 
             Application application = loadedApk.makeApplication(false, instrumentation);
 
-            Class<Activity> superActivityClazz = attachActivity(token, intent, resolveInfo, loadedApk, activity, application);
+            ActivityRecord activityRecord = new ActivityRecord();
+            activityRecord.activity = activity;
+            activityRecord.packageInfo = loadedApk;
+            activityRecord.compatInfo = loadedApk.getCompatibilityInfo();
+            activityRecord.activityInfo = resolveInfo.activityInfo;
+            activityRecord.intent = intent;
+            activityRecord.intent.setExtrasClassLoader(loadedApk.getClassLoader());
+
+            // TODO: Should we null the state here?
+            activityRecord.state = null;
+            // activityRecord.state = new Bundle();
+            // activityRecord.state.setClassLoader(loadedApk.getClassLoader());
+
+            activityRecord.persistentState = new PersistableBundle();
+
+            ADMToken admToken = new ADMToken(activityRecord);
+            Class<Activity> superActivityClazz = attachActivity(admToken, intent, resolveInfo.activityInfo, loadedApk, activity, application);
 
             injectAndromiumWindow(activity, superActivityClazz);
 
@@ -74,48 +91,7 @@ public class ActivityLifecycleManager {
                 activity.setTheme(theme);
             }
 
-            // FAKE SAVED INSTANCE STATE
-            Bundle icicle = new Bundle();
-
-            // Basically, we should keep a track of the activities ourselves,
-            // manage the parent/child flow, and setup the next intent appropriately
-
-            Field called = superActivityClazz.getDeclaredField(M_CALLED);
-            called.setAccessible(true);
-            called.setBoolean(activity, false);
-
-            // -------------------------------------------------
-            // ---------------- CREATE ACTIVITY ----------------
-            // -------------------------------------------------
-
-            // TODO: Save the bundle when we should stop the activity, "restore" it when we start
-            instrumentation.callActivityOnCreate(activity, icicle /* SAVED BUNDLE HERE */);
-
-            // -------------------------------------------------
-            // ---------------- CHECK IF FINISH ----------------
-            // -------------------------------------------------
-
-            Field finished = superActivityClazz.getDeclaredField(M_FINISHED);
-            finished.setAccessible(true);
-            boolean isFinished = finished.getBoolean(activity);
-
-            if (isFinished) {
-                Log.i(TAG, "Activity finish called in onCreate");
-//                instrumentation.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
-                return null;
-            }
-
-            if (startActivity(activity, superActivityClazz, finished)) return null;
-
-            checkIfSuperCalled(intent, activity, called);
-
-            if (restoreActivityState(activity, icicle, finished)) return null;
-
-            instrumentation.callActivityOnPostCreate(activity, icicle /* SAVED BUNDLE HERE */);
-
-            resumeActivity(activity, superActivityClazz);
-
-            return activity;
+            return setupActivity(activity, superActivityClazz, activityRecord);
         } catch (Exception e) {
             Log.wtf(TAG, e);
             Toast.makeText(who, "Andromium is unsupported on this version", Toast.LENGTH_SHORT).show();
@@ -124,16 +100,101 @@ public class ActivityLifecycleManager {
         return null;
     }
 
-    public void pauseAndStopActivity(Activity activity) {
+    @Nullable
+    public Activity restartActivity(Activity activity) throws NoSuchFieldException, IllegalAccessException,
+            NoSuchMethodException, InvocationTargetException, ClassNotFoundException, InstantiationException {
+
+        Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
+        if (superActivityClazz == null) {
+            throw new IllegalStateException(AndromiumInstrumentationInjector.ACTIVITY_PACKAGE + " not found.");
+        }
+
+        Method getActivityToken = superActivityClazz.getDeclaredMethod("getActivityToken");
+        getActivityToken.setAccessible(true);
+        IBinder previousToken = (IBinder) getActivityToken.invoke(activity);
+
+        ActivityRecord activityRecord = ADMToken.tokenToActivityRecordLocked(previousToken);
+
+        return setupActivity(activity, superActivityClazz, activityRecord);
+    }
+
+    @Nullable
+    private Activity setupActivity(Activity activity, Class<Activity> superActivityClazz, ActivityRecord activityRecord) throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+
+        // SAVED INSTANCE STATE
+        Bundle icicle = activityRecord.state;
+
+        // Basically, we should keep a track of the activities ourselves,
+        // manage the parent/child flow, and setup the next intent appropriately
+
+        Field called = superActivityClazz.getDeclaredField(M_CALLED);
+        called.setAccessible(true);
+        called.setBoolean(activity, false);
+
+        // -------------------------------------------------
+        // ---------------- CREATE ACTIVITY ----------------
+        // -------------------------------------------------
+
+        instrumentation.callActivityOnCreate(activity, icicle);
+
+        checkIfSuperCalled(activity, called);
+
+        activityRecord.stopped = true;
+
+        // -------------------------------------------------
+        // ---------------- CHECK IF FINISH ----------------
+        // -------------------------------------------------
+
+        Field finished = superActivityClazz.getDeclaredField(M_FINISHED);
+        finished.setAccessible(true);
+
+        if (finished.getBoolean(activity)) {
+            Log.i(TAG, "Activity finish called in onCreate");
+            activityRecord.paused = true;
+            return activity;
+        }
+
+        startActivity(activity, superActivityClazz);
+        activityRecord.stopped = false;
+
+        if (finished.getBoolean(activity)) {
+            Log.i(TAG, "Activity finish called in onStart");
+            activityRecord.paused = true;
+            return activity;
+        }
+
+        if (icicle != null) {
+            restoreActivityState(activity, icicle);
+        }
+
+        if (finished.getBoolean(activity)) {
+            Log.i(TAG, "Activity finish called in restoreActivityState");
+            activityRecord.paused = true;
+            return activity;
+        }
+
+        called.setBoolean(activity, false);
+        instrumentation.callActivityOnPostCreate(activity, icicle);
+
+        checkIfSuperCalled(activity, called);
+
+        activityRecord.paused = true;
+
+        resumeActivity(activity, superActivityClazz, activityRecord);
+
+        return activity;
+    }
+
+    public Bundle pauseAndStopActivity(Activity activity) {
 
         try {
-            Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+            Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
             Field finished = superActivityClazz.getDeclaredField(M_FINISHED);
             finished.setAccessible(true);
             boolean isFinished = finished.getBoolean(activity);
 
             if (isFinished) {
-                return;
+                return null;
             }
 
             Field called = superActivityClazz.getDeclaredField(M_CALLED);
@@ -157,14 +218,22 @@ public class ActivityLifecycleManager {
             performStop.setAccessible(true);
             performStop.invoke(activity);
 
+            return outState;
+
         } catch (Exception e) {
             Log.wtf(TAG, e);
             Toast.makeText(activity, "Andromium is unsupported on this version", Toast.LENGTH_SHORT).show();
         }
+
+        return null;
     }
 
     public void finishActivity(Activity activity) {
         instrumentation.callActivityOnDestroy(activity);
+
+        Context baseContext = activity.getBaseContext();
+        // TODO: Cleanup Context
+        // removeContextRegistrations
 
         // TODO: Determine how to GC resources
     }
@@ -181,7 +250,7 @@ public class ActivityLifecycleManager {
                 field.setAccessible(true);
                 field.set(activity, andromiumWindow);
             } catch (Exception error) {
-                Log.d("jesse", "GetField Activity Error: " + error);
+                Log.d(TAG, "GetField Activity Error: " + error);
             }
         }
 
@@ -225,10 +294,10 @@ public class ActivityLifecycleManager {
         andromiumWindow.setUiOptions(uiOptionsInt);
     }
 
-    private void checkIfSuperCalled(Intent intent, Activity activity, Field called) throws IllegalAccessException {
+    private void checkIfSuperCalled(Activity activity, Field called) throws IllegalAccessException {
         boolean calledSet = called.getBoolean(activity);
         if (!calledSet) {
-            throw new IllegalStateException("Activity " + intent.getComponent().toShortString() +
+            throw new IllegalStateException("Activity " + activity.getClass().getSimpleName() +
                     " did not call through to super.onCreate()");
         }
     }
@@ -238,24 +307,14 @@ public class ActivityLifecycleManager {
      *
      * @param activity
      * @param superActivityClazz
-     * @param finished
-     * @return
      * @throws NoSuchMethodException
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      */
-    private boolean startActivity(Activity activity, Class<Activity> superActivityClazz, Field finished) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    private void startActivity(Activity activity, Class<Activity> superActivityClazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         Method performStart = superActivityClazz.getDeclaredMethod(PERFORM_START);
         performStart.setAccessible(true);
         performStart.invoke(activity);
-
-        boolean isFinished = finished.getBoolean(activity);
-
-        if (isFinished) {
-            Log.i(TAG, "Activity finish called in onStart");
-        }
-
-        return isFinished;
     }
 
     /**
@@ -263,20 +322,11 @@ public class ActivityLifecycleManager {
      *
      * @param activity
      * @param icicle
-     * @param finished
      * @return
      * @throws IllegalAccessException
      */
-    private boolean restoreActivityState(Activity activity, Bundle icicle, Field finished) throws IllegalAccessException {
-        instrumentation.callActivityOnRestoreInstanceState(activity, icicle /* SAVED BUNDLE HERE */);
-
-        boolean isFinished = (boolean) finished.get(activity);
-
-        if (isFinished) {
-            Log.i(TAG, "Activity finish called in onStart");
-        }
-
-        return isFinished;
+    private void restoreActivityState(Activity activity, Bundle icicle) throws IllegalAccessException {
+        instrumentation.callActivityOnRestoreInstanceState(activity, icicle);
     }
 
     /**
@@ -325,7 +375,11 @@ public class ActivityLifecycleManager {
      * @throws NoSuchFieldException
      * @throws ClassNotFoundException
      */
-    private Class<Activity> attachActivity(IBinder token, Intent intent, ResolveInfo resolveInfo, LoadedApk loadedApk, Activity activity, Application application) throws NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
+    private Class<Activity> attachActivity(IBinder token, Intent intent, ActivityInfo activityInfo,
+                                           LoadedApk loadedApk, Activity activity, Application application)
+            throws NoSuchMethodException, InstantiationException, IllegalAccessException,
+            InvocationTargetException, NoSuchFieldException, ClassNotFoundException {
+
         Class<?> activityClientRecord = null;
         Class<?>[] declaredClasses = activityThread.getClass().getDeclaredClasses();
 
@@ -363,11 +417,11 @@ public class ActivityLifecycleManager {
         createBaseContextForActivity.setAccessible(true);
         Context appContext = (Context) createBaseContextForActivity.invoke(activityThread, realActivityClientRecord, activity);
 
-        CharSequence title = resolveInfo.activityInfo.loadLabel(appContext.getPackageManager());
+        CharSequence title = activityInfo.loadLabel(appContext.getPackageManager());
 
-        Class<Activity> superActivityClazz = getSuperclass(activity, ACTIVITY_PACKAGE);
+        Class<Activity> superActivityClazz = AndromiumInstrumentationInjector.getSuperclass(activity, AndromiumInstrumentationInjector.ACTIVITY_PACKAGE);
         if (superActivityClazz == null) {
-            throw new IllegalStateException(ACTIVITY_PACKAGE + " not found.");
+            throw new IllegalStateException(AndromiumInstrumentationInjector.ACTIVITY_PACKAGE + " not found.");
         }
 
         Class nonConfigInstances = null;
@@ -413,20 +467,20 @@ public class ActivityLifecycleManager {
         attachMethod.setAccessible(true);
 
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP) {
-            attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
-                    0, application, intent, resolveInfo.activityInfo, title, parent,
+            attachMethod.invoke(activity, appContext, activityThread, instrumentation, token,
+                    0, application, intent, activityInfo, title, parent,
                     null, null, new Configuration(),
                     null);
         } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             // Adds (String referrer)
-            attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
-                    0, application, intent, resolveInfo.activityInfo, title, parent,
+            attachMethod.invoke(activity, appContext, activityThread, instrumentation, token,
+                    0, application, intent, activityInfo, title, parent,
                     null, null, new Configuration(),
                     null, null);
         } else {
             // Adds (Window window)
-            attachMethod.invoke(activity, appContext, activityThread, instrumentation, serviceToken,
-                    0, application, intent, resolveInfo.activityInfo, title, parent,
+            attachMethod.invoke(activity, appContext, activityThread, instrumentation, token,
+                    0, application, intent, activityInfo, title, parent,
                     null, null, new Configuration(),
                     null, null, null);
         }
@@ -439,11 +493,12 @@ public class ActivityLifecycleManager {
      *
      * @param activity
      * @param superActivityClazz
+     * @param activityRecord
      * @throws NoSuchMethodException
      * @throws IllegalAccessException
      * @throws InvocationTargetException
      */
-    private void resumeActivity(Activity activity, Class<Activity> superActivityClazz) throws
+    private void resumeActivity(Activity activity, Class<Activity> superActivityClazz, ActivityRecord activityRecord) throws
             NoSuchMethodException, IllegalAccessException, InvocationTargetException, NoSuchFieldException {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -465,12 +520,19 @@ public class ActivityLifecycleManager {
         // --------------- INTENT REDELIVERY ---------------
         // -------------------------------------------------
 
-        // FIXME: deliverNewIntents relies on activity stack checking
-//            r.activity.mFragments.noteStateNotSaved();
-//            if (r.pendingIntents != null) {
-//                deliverNewIntents(r, r.pendingIntents);
-//                r.pendingIntents = null;
-//            }
+
+        if (activityRecord.pendingIntents != null) {
+            List<Intent> intents = activityRecord.pendingIntents;
+            // deliverNewIntents(activityRecord, intents);
+            final int N = intents.size();
+            for (int i = 0; i < N; i++) {
+                Intent intent = intents.get(i);
+                intent.setExtrasClassLoader(activity.getClassLoader());
+                noteStateNotSaved.invoke(fragController);
+                instrumentation.callActivityOnNewIntent(activity, intent);
+            }
+            activityRecord.pendingIntents = null;
+        }
 
         // -------------------------------------------------
         // ---------------- RESULT DELIVERY ----------------
@@ -480,10 +542,26 @@ public class ActivityLifecycleManager {
         // setResult(...) and then have an override for finish(...) in order to send
         // the results back.
 
-//            if (r.pendingResults != null) {
-//                deliverResults(r, r.pendingResults);
-//                r.pendingResults = null;
-//            }
+        if (activityRecord.pendingResults != null) {
+            // deliverResults(r, r.pendingResults);
+            List<ResultInfo> results = activityRecord.pendingResults;
+            final int N = results.size();
+            for (int i = 0; i < N; i++) {
+                ResultInfo ri = results.get(i);
+
+                if (ri.mData != null) {
+                    ri.mData.setExtrasClassLoader(activity.getClassLoader());
+                }
+
+                Method dispatchActivityResult = superActivityClazz.getDeclaredMethod("dispatchActivityResult",
+                        String.class, int.class, int.class, Intent.class);
+                dispatchActivityResult.setAccessible(true);
+                dispatchActivityResult.invoke(activity, ri.mResultWho,
+                        ri.mRequestCode, ri.mResultCode, ri.mData);
+            }
+
+            activityRecord.pendingResults = null;
+        }
 
         Method performResume = superActivityClazz.getDeclaredMethod(PERFORM_RESUME);
         performResume.setAccessible(true);
@@ -491,5 +569,10 @@ public class ActivityLifecycleManager {
 
         Log.d(TAG, "Performing Resume");
         instrumentation.callActivityOnResume(activity);
+
+        activityRecord.paused = false;
+        activityRecord.stopped = false;
+        activityRecord.state = null;
+        activityRecord.persistentState = null;
     }
 }

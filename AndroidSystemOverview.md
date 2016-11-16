@@ -1,6 +1,7 @@
 ### The Android Zygote
 
-https://anatomyofandroid.com/2013/10/15/zygote/
+Every application starts as the fork of a half-instantiated process called a [Zygote](https://anatomyofandroid.com/2013/10/15/zygote/).
+This happens at the linux level.
 
 
 ### How Apps are launched from the Zygote

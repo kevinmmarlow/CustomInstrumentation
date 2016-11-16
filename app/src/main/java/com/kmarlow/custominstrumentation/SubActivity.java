@@ -9,7 +9,7 @@ import android.widget.Button;
 
 /**
  * Run this to print out the stack.
- * adb shell dumpsys activity activities | sed -En -e '/Stack #/p' -e '/Running activities/,/Run #0/p'
+ * adb shell dumpsys activity activities | sed -En -e '/ADMStack #/p' -e '/Running activities/,/Run #0/p'
  */
 public class SubActivity extends Activity {
 
@@ -53,7 +53,7 @@ public class SubActivity extends Activity {
                 }
             });
         } else {
-            Log.d("jesse", "the button is null");
+            Log.d(TAG, "the button is null");
         }
 
 //        wm.addView(decorView, params);

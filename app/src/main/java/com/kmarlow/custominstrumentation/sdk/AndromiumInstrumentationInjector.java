@@ -1,27 +1,34 @@
-package com.kmarlow.custominstrumentation;
+package com.kmarlow.custominstrumentation.sdk;
 
+import android.app.Activity;
+import android.app.ActivityManagerNative;
 import android.app.ActivityThread;
+import android.app.IActivityManager;
+import android.app.Instrumentation;
 import android.app.Service;
 import android.content.ContextWrapper;
 import android.os.IBinder;
 import android.util.Log;
+import android.util.Pair;
+import android.util.Singleton;
 
 import java.lang.reflect.Field;
+import java.util.Locale;
 
 public final class AndromiumInstrumentationInjector {
-    private static final String TAG = AndromiumInstrumentationInjector.class.getName();
+    private static final String TAG = AndromiumInstrumentationInjector.class.getCanonicalName();
 
-    private static final String SERVICE_PACKAGE = "android.app.Service";
-    public static final String ACTIVITY_PACKAGE = "android.app.Activity";
+    private static final String SERVICE_PACKAGE = Service.class.getCanonicalName();
+    public static final String ACTIVITY_PACKAGE = Activity.class.getCanonicalName();
 
-    private static final String ACTIVITY_THREAD_PACKAGE = "android.app.ActivityThread";
-    private static final String INSTRUMENTATION_PACKAGE = "android.app.Instrumentation";
+    private static final String ACTIVITY_THREAD_PACKAGE = ActivityThread.class.getCanonicalName();
+    private static final String INSTRUMENTATION_PACKAGE = Instrumentation.class.getCanonicalName();
     private static final String ACTIVITY_THREAD_VAR_IN_SERVICE = "mThread";
     private static final String INSTRUMENTATION_FIELD = "mInstrumentation";
     public static final String SERVICE_TOKEN = "mToken";
 
 
-    public static AndromiumInstrumentation inject(Service service, AndromiumLifecycleCallbacks andromiumLifecycleCallbacks) {
+    public static Pair<AndromiumInstrumentation, ActivityLifecycleManager> inject(Service service, AndromiumLifecycleCallbacks andromiumLifecycleCallbacks) {
         if (!hasActivityThread()) return null;
 
         Class superClazz = getSuperclass(service, SERVICE_PACKAGE);
@@ -40,10 +47,25 @@ public final class AndromiumInstrumentationInjector {
 
             Field instrumentation = getField(realActivityThread.getClass(), INSTRUMENTATION_FIELD, INSTRUMENTATION_PACKAGE);
             instrumentation.setAccessible(true);
-            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(realActivityThread, serviceToken, andromiumLifecycleCallbacks);
+            AndromiumInstrumentation andromiumInstrumentation = new AndromiumInstrumentation(andromiumLifecycleCallbacks);
             instrumentation.set(realActivityThread, andromiumInstrumentation);
 
-            return andromiumInstrumentation;
+            ActivityLifecycleManager activityLifecycleManager = new ActivityLifecycleManager(andromiumInstrumentation, realActivityThread, serviceToken);
+
+            IActivityManager aDefault = ActivityManagerNative.getDefault();
+            Field mRemote = aDefault.getClass().getDeclaredField("mRemote");
+            mRemote.setAccessible(true);
+            IBinder remoteBinder = (IBinder) mRemote.get(aDefault);
+
+            Field gDefault = ActivityManagerNative.class.getDeclaredField("gDefault");
+            gDefault.setAccessible(true);
+            Singleton<IActivityManager> realGDefault = (Singleton<IActivityManager>) gDefault.get(ActivityManagerNative.class);
+
+            Field mInstance = gDefault.getType().getDeclaredField("mInstance");
+            mInstance.setAccessible(true);
+            mInstance.set(realGDefault, new ADMActivityManagerProxy(remoteBinder, andromiumLifecycleCallbacks));
+
+            return new Pair<>(andromiumInstrumentation, activityLifecycleManager);
         } catch (Exception e) {
             // Something crazy happened, rethrow, or potentially just don't open that app.
             throw new RuntimeException(e);
@@ -74,11 +96,17 @@ public final class AndromiumInstrumentationInjector {
         return theField;
     }
 
-    static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
+    public static <T extends ContextWrapper> Class<T> getSuperclass(T clazz, String packageName) {
         Class clazzWithActivityThread = clazz.getClass();
 
         while (clazzWithActivityThread != null && !clazzWithActivityThread.getName().equals(packageName)) {
             clazzWithActivityThread = clazzWithActivityThread.getSuperclass();
+        }
+
+        if (clazzWithActivityThread == null) {
+            throw new IllegalStateException(String.format(Locale.getDefault(),
+                    "Superclass not found with package name %s for class %s.",
+                    packageName, clazz.getClass().getSimpleName()));
         }
 
         return clazzWithActivityThread;
