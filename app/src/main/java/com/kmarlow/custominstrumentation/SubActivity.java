@@ -1,47 +1,34 @@
 package com.kmarlow.custominstrumentation;
 
-import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.ActionBarOverlayLayout;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 
 /**
  * Run this to print out the stack.
  * adb shell dumpsys activity activities | sed -En -e '/ADMStack #/p' -e '/Running activities/,/Run #0/p'
  */
-public class SubActivity extends Activity {
+public class SubActivity extends AppCompatActivity {
 
     private static final String TAG = SubActivity.class.getSimpleName();
+
+    ImageView imageView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sub);
 
-//        Window mWindow = getWindow();
-//        View decorView = mWindow.getDecorView();
-//        ViewGroup viewGroup = (ViewGroup) decorView.getRootView();
-//        View newView = viewGroup.getChildAt(0);
-////        viewGroup.removeAllViews();
-//        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-//                WindowManager.LayoutParams.MATCH_PARENT,
-//                WindowManager.LayoutParams.MATCH_PARENT,
-//                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT,
-//                0,
-//                PixelFormat.TRANSLUCENT);
-//        params.gravity = Gravity.RIGHT | Gravity.BOTTOM;
-//        params.setTitle("Load Average");
-//        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-//
-//        decorView.setOnTouchListener(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View view, MotionEvent motionEvent) {
-//                Log.d("jesse", "this is from the new on touch event");
-//                return true;
-//            }
-//        });
+        View decorView = getWindow().getDecorView();
+        Log.d("jesse", "this is the decor view: " + decorView);
+        ActionBarOverlayLayout overlayLayout = (ActionBarOverlayLayout) decorView.findViewById(R.id.decor_content_parent);
+//        Log.d("jesse", "overlay mode: " + overlayLayout.isInOverlayMode());
 
         Button button = (Button) findViewById(R.id.button);
         if (button != null) {
@@ -56,7 +43,38 @@ public class SubActivity extends Activity {
             Log.d(TAG, "the button is null");
         }
 
-//        wm.addView(decorView, params);
+        Button showLink = (Button) findViewById(R.id.show_link);
+        if (showLink != null) {
+            showLink.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    String url = "http://kissmanga.com/";
+                    Intent i = new Intent(Intent.ACTION_VIEW);
+                    i.setData(Uri.parse(url));
+                    startActivity(i);
+                }
+            });
+        } else {
+            Log.d(TAG, "the button is null");
+        }
+
+        imageView = (ImageView) findViewById(R.id.image);
+
+        Button loadImage = (Button) findViewById(R.id.load_photo);
+        if (loadImage != null) {
+            loadImage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent();
+                    intent.setType("*/*");
+                    intent.setAction(Intent.ACTION_GET_CONTENT);
+                    startActivityForResult(Intent.createChooser(intent, "Select file to upload "), 1000);
+                }
+            });
+        } else {
+            Log.d(TAG, "the button is null");
+        }
+
     }
 
     @Override
@@ -69,6 +87,14 @@ public class SubActivity extends Activity {
     protected void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         Log.i(TAG, "onRestoreInstanceState called");
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d("jesse", "this is the data: " + data);
+        Log.d("jesse", "this is the get data: " + data.getData());
+        Log.d("jesse", "this is the get extra: " + data.getExtras());
+        Log.d("jesse", "this is the get extra data: " + data.getExtras().get("data"));
     }
 
     @Override

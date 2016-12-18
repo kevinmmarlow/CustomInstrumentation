@@ -32,18 +32,14 @@ android {
 
 repositories {
     maven { url 'https://dl.bintray.com/anggrayudi/maven/' }
-    flatDir {
-        dirs 'libs'
-    }
+    mavenCentral()
+    mavenLocal()
 }
 
-
 dependencies {
-    provided fileTree(dir: 'libs', include: ['*.jar'])
-    compile(name: 'AndromiumFramework', ext: 'aar')
-    
-    compile 'com.anggrayudi:android-hidden-api:0.0.5'
-
+    compile('org.sentio:AndromiumFramework:0.0.1-SNAPSHOT') {
+        changing = true
+    }
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })

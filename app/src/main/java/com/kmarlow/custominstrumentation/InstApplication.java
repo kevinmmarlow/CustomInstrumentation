@@ -2,9 +2,7 @@ package com.kmarlow.custominstrumentation;
 
 import android.app.Application;
 import android.content.Context;
-import android.content.Intent;
 
-import com.kmarlow.custominstrumentation.sdk.AndromiumControllerService;
 import com.squareup.leakcanary.LeakCanary;
 import com.squareup.leakcanary.RefWatcher;
 
@@ -28,8 +26,5 @@ public class InstApplication extends Application {
             return;
         }
         refWatcher = LeakCanary.install(this);
-
-        Intent intent = new Intent(this, AndromiumControllerService.class);
-        startService(intent);
     }
 }
