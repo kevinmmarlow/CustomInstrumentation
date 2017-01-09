@@ -17,6 +17,9 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        debug {
+            testCoverageEnabled true
+        }
     }
 
     dexOptions {
@@ -45,7 +48,7 @@ repositories {
 dependencies {
     provided fileTree(dir: 'libs', include: ['*.jar'])
     compile(name: 'AndromiumFramework', ext: 'aar')
-    
+
     compile 'com.anggrayudi:android-hidden-api:0.0.5'
 
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
